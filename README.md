@@ -1,3 +1,28 @@
+## Requirements
+
+### Node.js v22.22.0+
+
+If not currently installed, head to https://nodejs.org/en/download
+
+or use install script if on Linux
+
+```shell
+# Download and install nvm:
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
+# in lieu of restarting the shell
+\. "$HOME/.nvm/nvm.sh"
+
+# Download and install Node.js:
+nvm install 22
+
+# Verify the Node.js version:
+node -v # Should print "v22.22.0".
+
+# Verify npm version:
+npm -v # Should print "10.9.4".
+```
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
