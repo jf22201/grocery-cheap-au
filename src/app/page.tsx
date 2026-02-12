@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { useState, useEffect } from 'react'
 import { subscribeUser, unsubscribeUser, sendNotification } from './actions' //These imports are used for webpush notifs
+import { Button } from "@/components/ui/button"
  
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -147,7 +148,10 @@ function InstallPrompt() {
           .
         </p>
       )}
+      <Button variant="outline">Button</Button>
     </div>
+
+
   )
 }
  
