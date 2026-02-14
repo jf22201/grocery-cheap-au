@@ -1,7 +1,7 @@
 'use server'
  
 import webpush from 'web-push'
- 
+import { PushSubscription } from 'web-push'
 webpush.setVapidDetails(
   'mailto:jservicesjunk222@gmail.com',
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
