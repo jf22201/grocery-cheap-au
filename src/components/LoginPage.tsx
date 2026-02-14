@@ -12,12 +12,20 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Separator } from "./ui/separator";
-import { signIn, signUp, confirmSignUp } from "aws-amplify/auth";
+import {
+  signIn,
+  signUp,
+  confirmSignUp,
+  resendSignUpCode,
+} from "aws-amplify/auth";
 import { Amplify } from "aws-amplify";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { email } from "zod";
 import outputs from "../../amplify_outputs.json";
 import { responseCookiesToRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
+import { InfoIcon } from "lucide-react";
+import { UserReference } from "aws-cdk-lib/aws-appstream";
+import { execPath } from "process";
 Amplify.configure(outputs);
 
 export function LoginPage() {
@@ -28,6 +36,7 @@ export function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showVerification, setShowVerification] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
+  const verificationEmail = useRef("");
   const toggleIsSignUp = () => {
     setIsSignUp((prev) => !prev);
   };
@@ -36,20 +45,23 @@ export function LoginPage() {
   }, [email, password]);
 
   async function handleLogin() {
+    const loginEmail = email;
+    const loginPassword = password;
     try {
       if (isSignUp) {
         //logic to handle sign up
         const { message, ...rest } = await signUp({
-          username: email,
-          password: password,
+          username: loginEmail,
+          password: loginPassword,
         });
       } else {
         //logic to handle sign in
         const { signInStep, nextStep } = await signIn({
-          username: email,
-          password: password,
+          username: loginEmail,
+          password: loginPassword,
         });
         if (nextStep.signInStep == "CONFIRM_SIGN_UP") {
+          verificationEmail.current = loginEmail;
           setShowVerification(true);
         }
       }
@@ -116,6 +128,7 @@ export function LoginPage() {
             <VerificationCode
               confirmationCode={confirmationCode}
               setConfirmationCode={setConfirmationCode}
+              verificationEmail={verificationEmail.current}
             ></VerificationCode>
           )}
         </form>
@@ -159,7 +172,30 @@ export function LoginPage() {
   );
 }
 
-const VerificationCode = ({ confirmationCode, setConfirmationCode }) => {
+const VerificationCode = ({
+  confirmationCode,
+  setConfirmationCode,
+  verificationEmail,
+}: {
+  confirmationCode: string;
+  setConfirmationCode: Dispatch<SetStateAction<string>>;
+  verificationEmail: string;
+}) => {
+  const VerificationSubmit = async () => {
+    try {
+      console.log(verificationEmail, confirmationCode);
+      const { isSignUpComplete, nextStep } = await confirmSignUp({
+        username: verificationEmail,
+        confirmationCode: confirmationCode,
+      });
+    } catch (err) {}
+  };
+  const GetNewVerificationCode = async () => {
+    try {
+      const output = await resendSignUpCode({ username: verificationEmail });
+      console.log(output);
+    } catch (err) {}
+  };
   return (
     <div>
       <div className="flex flex-col">
@@ -173,8 +209,16 @@ const VerificationCode = ({ confirmationCode, setConfirmationCode }) => {
           />
         </div>
         <div className="flex gap-2">
-          <Button className="flex-1">Submit</Button>
-          <Button className="flex-1">Recieve Code</Button>
+          <Button type="button" className="flex-1" onClick={VerificationSubmit}>
+            Submit
+          </Button>
+          <Button
+            type="button"
+            className="flex-1"
+            onClick={GetNewVerificationCode}
+          >
+            Receive Code
+          </Button>
         </div>
       </div>
     </div>
