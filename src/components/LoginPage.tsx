@@ -20,12 +20,13 @@ import {
 } from "aws-amplify/auth";
 import { Amplify } from "aws-amplify";
 import { useState, useEffect, useRef } from "react";
-import { email } from "zod";
+import { email, set } from "zod";
 import outputs from "../../amplify_outputs.json";
 import { responseCookiesToRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import { InfoIcon } from "lucide-react";
 import { UserReference } from "aws-cdk-lib/aws-appstream";
 import { execPath } from "process";
+import { Pass } from "aws-cdk-lib/aws-stepfunctions";
 Amplify.configure(outputs);
 
 export function LoginPage() {
@@ -181,6 +182,29 @@ const VerificationCode = ({
   setConfirmationCode: Dispatch<SetStateAction<string>>;
   verificationEmail: string;
 }) => {
+  const [showResendCountdown, setShowResendCountdown] = useState(false);
+  const [countdownTimer, setCountdownTimer] = useState(0);
+  useEffect(() => {
+    let countdown: NodeJS.Timeout | undefined;
+    if (showResendCountdown) {
+      setCountdownTimer(60);
+      const countdown = setInterval(
+        () =>
+          setCountdownTimer((old) => {
+            if (old < 1) {
+              //When counter hits 0, hide the countdown and stop interval.
+              setShowResendCountdown(false);
+              clearInterval(countdown);
+              return 0;
+            }
+            return old - 1;
+          }),
+        1000,
+      ); //Countdown by 1 each second.
+    }
+    return () => clearInterval(countdown);
+  }, [showResendCountdown]);
+  useEffect(() => {}, []);
   const VerificationSubmit = async () => {
     try {
       console.log(verificationEmail, confirmationCode);
@@ -188,13 +212,17 @@ const VerificationCode = ({
         username: verificationEmail,
         confirmationCode: confirmationCode,
       });
-    } catch (err) {}
+    } catch (err) {} //TODO: render toast with error here
   };
   const GetNewVerificationCode = async () => {
-    try {
-      const output = await resendSignUpCode({ username: verificationEmail });
-      console.log(output);
-    } catch (err) {}
+    if (!showResendCountdown) {
+      //Should only send request if there is no countdown on button.
+      setShowResendCountdown(true);
+      try {
+        const output = await resendSignUpCode({ username: verificationEmail });
+        console.log(output);
+      } catch (err) {} //TODO: render toast with error here
+    }
   };
   return (
     <div>
@@ -217,7 +245,7 @@ const VerificationCode = ({
             className="flex-1"
             onClick={GetNewVerificationCode}
           >
-            Receive Code
+            {!showResendCountdown ? "Recieve Code" : `Wait ${countdownTimer}s`}
           </Button>
         </div>
       </div>
