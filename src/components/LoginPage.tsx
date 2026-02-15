@@ -17,12 +17,12 @@ import {
   signUp,
   confirmSignUp,
   resendSignUpCode,
+  AuthError,
 } from "aws-amplify/auth";
 import { Amplify } from "aws-amplify";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, SetStateAction, Dispatch } from "react";
 import { useRouter } from "next/navigation";
 import outputs from "../../amplify_outputs.json";
-import { responseCookiesToRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import { toast } from "sonner";
 Amplify.configure(outputs);
 
@@ -50,6 +50,7 @@ export function LoginPage() {
         //logic to handle sign up
         if (password !== confirmPassword) {
           //TODO: insert error message for password not matching
+          toast.error("Passwords do not match!", { position: "top-center" });
         } else {
           //passwords match, attempt sign up
           const { isSignUpComplete, nextStep } = await signUp({
@@ -58,6 +59,9 @@ export function LoginPage() {
           });
           if (nextStep.signUpStep == "CONFIRM_SIGN_UP") {
             verificationEmail.current = loginEmail;
+            toast.info("Verification code sent to email.", {
+              position: "top-center",
+            });
             setShowVerification(true);
           }
         }
@@ -77,9 +81,15 @@ export function LoginPage() {
       }
     } catch (err) {
       console.log(err);
-
       // show toast error notification to user
-      toast.error(err.message, { position: "top-right" });
+      if (err instanceof AuthError) {
+        //aws-amplify auth error
+        toast.error(err.message, { position: "top-center" });
+      } else if (err instanceof Error) {
+        toast.error(err.message, { position: "top-center" });
+      } else {
+        toast.error("Unexpected error occured", { position: "top-center" });
+      }
     }
   }
   return (
@@ -233,7 +243,16 @@ const VerificationCode = ({
       //If we reach here without error thrown, the account was activated successfully.
       setShowVerification(false);
       setIsSignUp(false);
-    } catch (err) {} //TODO: render toast with error here
+    } catch (err: unknown) {
+      if (err instanceof AuthError) {
+        //aws-amplify auth error
+        toast.error(err.message, { position: "top-center" });
+      } else if (err instanceof Error) {
+        toast.error(err.message, { position: "top-center" });
+      } else {
+        toast.error("Unexpected error occured", { position: "top-center" });
+      }
+    }
   };
   const GetNewVerificationCode = async () => {
     if (!showResendCountdown) {
@@ -242,7 +261,16 @@ const VerificationCode = ({
       try {
         const output = await resendSignUpCode({ username: verificationEmail });
         console.log(output);
-      } catch (err) {} //TODO: render toast with error here
+      } catch (err: unknown) {
+        if (err instanceof AuthError) {
+          //aws-amplify auth error
+          toast.error(err.message, { position: "top-center" });
+        } else if (err instanceof Error) {
+          toast.error(err.message, { position: "top-center" });
+        } else {
+          toast.error("Unexpected error occured", { position: "top-center" });
+        }
+      }
     }
   };
   return (
