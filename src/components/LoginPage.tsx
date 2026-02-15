@@ -22,7 +22,8 @@ import { Amplify } from "aws-amplify";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import outputs from "../../amplify_outputs.json";
-
+import { responseCookiesToRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
+import { toast } from "sonner";
 Amplify.configure(outputs);
 
 export function LoginPage() {
@@ -76,6 +77,9 @@ export function LoginPage() {
       }
     } catch (err) {
       console.log(err);
+
+      // show toast error notification to user
+      toast.error(err.message, { position: "top-right" });
     }
   }
   return (
