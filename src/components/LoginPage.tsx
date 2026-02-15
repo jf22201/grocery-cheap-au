@@ -20,13 +20,9 @@ import {
 } from "aws-amplify/auth";
 import { Amplify } from "aws-amplify";
 import { useState, useEffect, useRef } from "react";
-import { email, set } from "zod";
+import { useRouter } from "next/navigation";
 import outputs from "../../amplify_outputs.json";
-import { responseCookiesToRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
-import { InfoIcon } from "lucide-react";
-import { UserReference } from "aws-cdk-lib/aws-appstream";
-import { execPath } from "process";
-import { Pass } from "aws-cdk-lib/aws-stepfunctions";
+
 Amplify.configure(outputs);
 
 export function LoginPage() {
@@ -51,16 +47,28 @@ export function LoginPage() {
     try {
       if (isSignUp) {
         //logic to handle sign up
-        const { message, ...rest } = await signUp({
-          username: loginEmail,
-          password: loginPassword,
-        });
+        if (password !== confirmPassword) {
+          //TODO: insert error message for password not matching
+        } else {
+          //passwords match, attempt sign up
+          const { isSignUpComplete, nextStep } = await signUp({
+            username: loginEmail,
+            password: loginPassword,
+          });
+          if (nextStep.signUpStep == "CONFIRM_SIGN_UP") {
+            verificationEmail.current = loginEmail;
+            setShowVerification(true);
+          }
+        }
       } else {
         //logic to handle sign in
-        const { signInStep, nextStep } = await signIn({
+        const { isSignedIn, nextStep } = await signIn({
           username: loginEmail,
           password: loginPassword,
         });
+        if (nextStep.signInStep == "DONE") {
+          //Insert successful signin logic here
+        }
         if (nextStep.signInStep == "CONFIRM_SIGN_UP") {
           verificationEmail.current = loginEmail;
           setShowVerification(true);
@@ -130,6 +138,8 @@ export function LoginPage() {
               confirmationCode={confirmationCode}
               setConfirmationCode={setConfirmationCode}
               verificationEmail={verificationEmail.current}
+              setShowVerification={setShowVerification}
+              setIsSignUp={setIsSignUp}
             ></VerificationCode>
           )}
         </form>
@@ -177,10 +187,14 @@ const VerificationCode = ({
   confirmationCode,
   setConfirmationCode,
   verificationEmail,
+  setShowVerification,
+  setIsSignUp,
 }: {
   confirmationCode: string;
   setConfirmationCode: Dispatch<SetStateAction<string>>;
   verificationEmail: string;
+  setShowVerification: Dispatch<SetStateAction<boolean>>;
+  setIsSignUp: Dispatch<SetStateAction<boolean>>;
 }) => {
   const [showResendCountdown, setShowResendCountdown] = useState(false);
   const [countdownTimer, setCountdownTimer] = useState(0);
@@ -212,6 +226,9 @@ const VerificationCode = ({
         username: verificationEmail,
         confirmationCode: confirmationCode,
       });
+      //If we reach here without error thrown, the account was activated successfully.
+      setShowVerification(false);
+      setIsSignUp(false);
     } catch (err) {} //TODO: render toast with error here
   };
   const GetNewVerificationCode = async () => {
@@ -245,7 +262,7 @@ const VerificationCode = ({
             className="flex-1"
             onClick={GetNewVerificationCode}
           >
-            {!showResendCountdown ? "Recieve Code" : `Wait ${countdownTimer}s`}
+            {!showResendCountdown ? "Resend Code" : `Wait ${countdownTimer}s`}
           </Button>
         </div>
       </div>
