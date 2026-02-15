@@ -29,6 +29,7 @@ Amplify.configure(outputs);
 export function LoginPage() {
   //State variables to store email and password
   const [email, setEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -41,8 +42,9 @@ export function LoginPage() {
   useEffect(() => {
     console.log(email, password);
   }, [email, password]);
-
-  async function handleLogin() {
+  
+  async function handleLogin(e: React.SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
     const loginEmail = email;
     const loginPassword = password;
     try {
@@ -102,7 +104,7 @@ export function LoginPage() {
         <CardDescription>App Description...</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form action="" className="space-y-4">
+        <form onSubmit={handleLogin} action="" className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -118,12 +120,18 @@ export function LoginPage() {
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="••••••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <Button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </Button>
           </div>
           {isSignUp && (
             <div className="space-y-2">
@@ -139,10 +147,9 @@ export function LoginPage() {
           )}
           {
             <Button
-              type="button"
+              type="submit"
               className="w-full hover:bg-primary/50"
               variant="outline"
-              onClick={handleLogin}
             >
               {isSignUp ? "Sign up" : "Sign in"}
             </Button>
@@ -243,6 +250,9 @@ const VerificationCode = ({
       //If we reach here without error thrown, the account was activated successfully.
       setShowVerification(false);
       setIsSignUp(false);
+      toast.success("Account verified successfully! Please sign in.", {
+        position: "top-center",
+      });
     } catch (err: unknown) {
       if (err instanceof AuthError) {
         //aws-amplify auth error
