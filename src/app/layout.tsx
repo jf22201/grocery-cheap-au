@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Amplify } from "aws-amplify";
-import outputs from "../../amplify_outputs.json";
-Amplify.configure(outputs);
+import ConfigureAmplifyClientSide from "@/components/ConfigureAmplifyClientSide";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -29,6 +27,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <ConfigureAmplifyClientSide />
         {children}
       </body>
     </html>
