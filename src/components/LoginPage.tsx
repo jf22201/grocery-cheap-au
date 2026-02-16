@@ -19,17 +19,18 @@ import {
   resendSignUpCode,
   AuthError,
 } from "aws-amplify/auth";
-import { Amplify } from "aws-amplify";
-import { useState, useEffect, useRef, SetStateAction, Dispatch } from "react";
-import { useRouter } from "next/navigation";
-import outputs from "../../amplify_outputs.json";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  SetStateAction,
+  Dispatch,
+} from "react";
 import { toast } from "sonner";
-Amplify.configure(outputs);
-
 export function LoginPage() {
   //State variables to store email and password
   const [email, setEmail] = useState("");
-  const [showPassword, setShowPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -39,10 +40,7 @@ export function LoginPage() {
   const toggleIsSignUp = () => {
     setIsSignUp((prev) => !prev);
   };
-  useEffect(() => {
-    console.log(email, password);
-  }, [email, password]);
-  
+
   async function handleLogin(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const loginEmail = email;
@@ -158,7 +156,7 @@ export function LoginPage() {
             <VerificationCode
               confirmationCode={confirmationCode}
               setConfirmationCode={setConfirmationCode}
-              verificationEmail={verificationEmail.current}
+              verificationEmail={verificationEmail}
               setShowVerification={setShowVerification}
               setIsSignUp={setIsSignUp}
             ></VerificationCode>
@@ -186,7 +184,7 @@ export function LoginPage() {
       <CardFooter className="flex flex-col space-y-4">
         {!isSignUp ? (
           <div className="text-sm text-center text-muted-foreground">
-            Don't have an account?{" "}
+            {"Don't have an account? "}
             <button className="hover:text-primary/100" onClick={toggleIsSignUp}>
               Sign up
             </button>
@@ -213,7 +211,7 @@ const VerificationCode = ({
 }: {
   confirmationCode: string;
   setConfirmationCode: Dispatch<SetStateAction<string>>;
-  verificationEmail: string;
+  verificationEmail: React.RefObject<string>;
   setShowVerification: Dispatch<SetStateAction<boolean>>;
   setIsSignUp: Dispatch<SetStateAction<boolean>>;
 }) => {
@@ -222,7 +220,6 @@ const VerificationCode = ({
   useEffect(() => {
     let countdown: NodeJS.Timeout | undefined;
     if (showResendCountdown) {
-      setCountdownTimer(60);
       const countdown = setInterval(
         () =>
           setCountdownTimer((old) => {
@@ -244,7 +241,7 @@ const VerificationCode = ({
     try {
       console.log(verificationEmail, confirmationCode);
       const { isSignUpComplete, nextStep } = await confirmSignUp({
-        username: verificationEmail,
+        username: verificationEmail.current,
         confirmationCode: confirmationCode,
       });
       //If we reach here without error thrown, the account was activated successfully.
@@ -267,9 +264,12 @@ const VerificationCode = ({
   const GetNewVerificationCode = async () => {
     if (!showResendCountdown) {
       //Should only send request if there is no countdown on button.
+      setCountdownTimer(60);
       setShowResendCountdown(true);
       try {
-        const output = await resendSignUpCode({ username: verificationEmail });
+        const output = await resendSignUpCode({
+          username: verificationEmail.current,
+        });
         console.log(output);
       } catch (err: unknown) {
         if (err instanceof AuthError) {
