@@ -27,6 +27,7 @@ import React, {
   Dispatch,
 } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 export function LoginPage() {
   //State variables to store email and password
   const [email, setEmail] = useState("");
@@ -37,10 +38,12 @@ export function LoginPage() {
   const [showVerification, setShowVerification] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
   const verificationEmail = useRef("");
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
   const toggleIsSignUp = () => {
     setIsSignUp((prev) => !prev);
   };
-
+  const router = useRouter();
   async function handleLogin(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const loginEmail = email;
@@ -49,7 +52,6 @@ export function LoginPage() {
       if (isSignUp) {
         //logic to handle sign up
         if (password !== confirmPassword) {
-          //TODO: insert error message for password not matching
           toast.error("Passwords do not match!", { position: "top-center" });
         } else {
           //passwords match, attempt sign up
@@ -72,7 +74,8 @@ export function LoginPage() {
           password: loginPassword,
         });
         if (nextStep.signInStep == "DONE") {
-          //Insert successful signin logic here
+          toast.success("Logged in successfully!", { position: "top-center" });
+          router.push("/");
         }
         if (nextStep.signInStep == "CONFIRM_SIGN_UP") {
           verificationEmail.current = loginEmail;
