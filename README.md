@@ -27,6 +27,14 @@ npm -v # Should print "10.9.4".
 
 Grab AWS CLI tools if not installed on your development machine: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 
+### Database
+This project uses drizzle ORM for database migrations, make sure to install drizzle-kit for database migrations.
+
+```bash
+npm i -D drizzle-kit
+```
+For more information regarding database migrations refer here: https://orm.drizzle.team/docs/migrations
+
 ## Getting Started
 
 First, make sure you are at repo root then install npm requirements
