@@ -2,7 +2,7 @@
 
 ### Node.js v22.22.0
 
-If not currently installed, head to https://nodejs.org/en/download
+If not currently installed, head [here](https://nodejs.org/en/download)
 
 or use install script if on Linux
 
@@ -25,7 +25,7 @@ npm -v # Should print "10.9.4".
 
 ### AWS CLI
 
-Grab AWS CLI tools if not installed on your development machine: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+Grab AWS CLI tools if not installed on your development machine: [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
 ### Database
 This project uses drizzle ORM for database migrations, make sure to install drizzle-kit for database migrations.
@@ -33,7 +33,7 @@ This project uses drizzle ORM for database migrations, make sure to install driz
 ```bash
 npm i -D drizzle-kit
 ```
-For more information regarding database migrations refer here: https://orm.drizzle.team/docs/migrations
+For more information regarding database migrations check [here](https://orm.drizzle.team/docs/migrations)
 
 ## Getting Started
 
@@ -78,3 +78,7 @@ This app requires https, by default npm run dev should launch the server using h
 ### Push service errors
 
 Check to see if GCM (Google cloud messaging is enabled on your browser)
+
+### Not able to access env values in Amplify sandbox
+
+Make sure to add any .env values to be used in the sandbox by setting secrets. Check [here](https://docs.amplify.aws/react/deploy-and-host/fullstack-branching/secrets-and-vars/) for more info: 
