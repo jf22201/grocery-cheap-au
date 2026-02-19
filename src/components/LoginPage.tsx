@@ -260,7 +260,7 @@ const VerificationCode = ({
       } else if (err instanceof Error) {
         toast.error(err.message, { position: "top-center" });
       } else {
-        toast.error("Unexpected error occured", { position: "top-center" });
+        toast.error("Unexpected error occurred", { position: "top-center" });
       }
     }
   };

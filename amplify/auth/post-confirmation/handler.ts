@@ -1,7 +1,20 @@
 import type { PostConfirmationTriggerHandler } from "aws-lambda";
-import { db } from "@/amplify/index";
-export const handler: PostConfirmationTriggerHandler = (event) => {
+import { db } from "../../index";
+import { usersTable } from "../../db/schema";
+export const handler: PostConfirmationTriggerHandler = async (event) => {
   //extract relevant user info from trigger event
-  const userid = event.request.userAttributes?.sub;
+  console.log("Running account post confirm handler...");
+  const userId = event.request.userAttributes?.sub;
   const email = event.request.userAttributes?.email;
+  //insert record into db
+  try {
+    await db.insert(usersTable).values({
+      userId,
+      email,
+    });
+  } catch (err) {
+    console.error(err);
+  }
+  console.log(`Added ${userId}, ${email} to database`);
+  return event;
 };

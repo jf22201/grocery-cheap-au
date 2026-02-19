@@ -1,7 +1,8 @@
 import { integer, pgTable, varchar, text, pgSchema } from "drizzle-orm/pg-core";
+const currentSchema = process.env.DB_SCHEMA
+  ? pgSchema(process.env.DB_SCHEMA)
+  : pgSchema("main"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
 
-export const schemaName = process.env.DB_SCHEMA || "public"; //Use the current dev's schema name if defined otherwise fall back to public (prod should only be only a public schema)
-export const currentSchema = pgSchema(schemaName);
 export const usersTable = currentSchema.table("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   userId: varchar({ length: 255 }).notNull(),
