@@ -1,5 +1,5 @@
 import type { PostConfirmationTriggerHandler } from "aws-lambda";
-import { db } from "../../index";
+import { db } from "../../db/index";
 import { usersTable } from "../../db/schema";
 export const handler: PostConfirmationTriggerHandler = async (event) => {
   //extract relevant user info from trigger event
