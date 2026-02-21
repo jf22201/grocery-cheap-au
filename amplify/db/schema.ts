@@ -4,8 +4,8 @@ const currentSchema = process.env.DB_SCHEMA
   : pgSchema("main"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
 
 export const usersTable = currentSchema.table("users", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  userId: varchar({ length: 255 }).notNull(),
+  id: integer().primaryKey().generatedAlwaysAsIdentity(), //This is the DB internal primary key for each user
+  userId: varchar({ length: 255 }).notNull(), //This is the userid from cognito
   email: varchar({ length: 255 }).notNull(),
 });
 
