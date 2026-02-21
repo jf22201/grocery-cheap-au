@@ -1,0 +1,12 @@
+import { defineFunction, secret } from "@aws-amplify/backend";
+
+export const api = defineFunction({
+  // optionally specify a name for the Function (defaults to directory name)
+  name: "api",
+  environment: {
+    DB_SCHEMA: secret("DB_SCHEMA") || "main",
+    DATABASE_URL: secret("DATABASE_URL"),
+  },
+  // optionally specify a path to your handler (defaults to "./handler.ts")
+  entry: "./index.ts",
+});
