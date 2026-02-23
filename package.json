@@ -6,7 +6,7 @@
     "dev": "next dev --experimental-https",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src/ amplify/ --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "echo 'no tests yet' && exit 0"
   },
