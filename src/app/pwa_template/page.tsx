@@ -38,18 +38,13 @@ async function tester() {
  * @returns {JSX.Element} A UI for toggling notifications and sending test messages.
  */
 function PushNotificationManager() {
-  const [isSupported, setIsSupported] = useState<boolean>(false);
+  const [isSupported, setIsSupported] = useState<boolean>(
+    "serviceWorker" in navigator && "PushManager" in window,
+  );
   const [subscription, setSubscription] = useState<PushSubscription | null>(
     null,
   );
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      setIsSupported(true);
-      registerServiceWorker();
-    }
-  }, []);
 
   async function registerServiceWorker() {
     const registration = await navigator.serviceWorker.register("/sw.js", {
@@ -59,6 +54,13 @@ function PushNotificationManager() {
     const sub = await registration.pushManager.getSubscription();
     setSubscription(sub);
   }
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      registerServiceWorker();
+    }
+  }, []);
 
   async function subscribeToPush() {
     const registration = await navigator.serviceWorker.ready;
@@ -123,16 +125,12 @@ function PushNotificationManager() {
  * @returns {JSX.Element} Pop up to remind user to install
  */
 function InstallPrompt() {
-  const [isIOS, setIsIOS] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
-
-  useEffect(() => {
-    setIsIOS(
-      /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream,
-    );
-
-    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches);
-  }, []);
+  const [isIOS, setIsIOS] = useState(
+    /iPad|iPhone|iPod/.test(navigator.userAgent),
+  );
+  const [isStandalone, setIsStandalone] = useState(
+    window.matchMedia("(display-mode: standalone)").matches,
+  );
 
   if (isStandalone) {
     return null; // Don't show install button if already installed
@@ -149,9 +147,8 @@ function InstallPrompt() {
             {" "}
             ⎋{" "}
           </span>
-          and then "Add to Home Screen"
+          {'and then "Add to Home Screen"'}
           <span role="img" aria-label="plus icon">
-            {" "}
             ➕{" "}
           </span>
           .
