@@ -4,6 +4,7 @@ import outputs from "@/../amplify_outputs.json";
 import { fetchAuthSession } from "aws-amplify/auth";
 import { Authorization } from "aws-cdk-lib/aws-events";
 export default async function ConfigureAmplify() {
+  Amplify.configure(outputs); //Need to do this initial configuration otherwise fetchAuthSession will fail.
   const amplifyConfig = parseAmplifyConfig(outputs);
   //get auth session details to fill out the Auth header.
   let auth;
