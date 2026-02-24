@@ -44,7 +44,6 @@ export default function Page() {
       <div className="p-6">
         <h1 className="text-2xl font-semibold">Home</h1>
       </div>
-
       <AddProduct openTrigger={showModal} setOpenTrigger={setShowModal} />
     </div>
   );
