@@ -1,5 +1,4 @@
 import * as cheerio from "cheerio";
-
 export function parseWoolworthsPage(html: string) {
   const htmlText = cheerio.load(html);
   const jsonText = htmlText("#__NEXT_DATA__").text();
