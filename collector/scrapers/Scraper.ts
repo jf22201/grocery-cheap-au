@@ -1,6 +1,7 @@
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { Browser, Page, PuppeteerLifeCycleEvent } from "puppeteer";
+import { error } from "console";
 const randomDelay = (min: number, max: number) =>
   new Promise((resolve) =>
     setTimeout(resolve, Math.random() * (max - min) + min),
@@ -55,6 +56,24 @@ export interface ProxyInfo {
   username?: string;
   password?: string;
 }
+/**
+ * Interface to store all details of the current scrape if something goes wrong.
+ * @param html This is the last loaded page before an error was thrown
+ * @param url The url that was attempted to be scraped
+ * @param proxy The proxy that was used if applicable
+ * @param error The error that was thrown to scraper.
+ */
+export interface ScrapingErrorDetails {
+  html: string;
+  url: string;
+  proxy?: string;
+  error: {
+    //Serialized error
+    message?: string;
+    stack?: string;
+    name?: string;
+  };
+}
 
 export const viewports = [
   { width: 1920, height: 1080 },
@@ -62,6 +81,15 @@ export const viewports = [
   { width: 1536, height: 864 },
   { width: 1440, height: 900 },
 ];
+
+/**
+ * Custom error to store associated details of a failed scrape.
+ */
+export class ScrapingError extends Error {
+  constructor(scrapingErrorDetails: ScrapingErrorDetails) {
+    super(JSON.stringify(scrapingErrorDetails));
+  }
+}
 
 export default class Scraper {
   private browser: Browser | null = null;
@@ -103,7 +131,7 @@ export default class Scraper {
    * @param browser Puppeteer Browser object to perform the requests to url
    * @param url url to obtain HTML for
    * @param siteConfig SiteConfig for individual retailer site that will be scraped
-   * @param interceptorConfig InterceptorConfig to provide rules for Puppeteer on what content/requests to ignore.
+   * @param interceptorConfig Optional - InterceptorConfig to provide rules for Puppeteer on what content/requests to ignore.
    * @returns html body of site as string
    */
   async scrapePage(
@@ -150,24 +178,109 @@ export default class Scraper {
     }
     await randomDelay(1000, 3000); //wait between 1-3 seconds to reduce chance of being blocked.
     let html = "";
+    let initialHtml = ""; //This is to store any html that occurs before the actual product page loads, currently just used for logging on error
     try {
       await page.goto(url, {
         waitUntil: siteConfig?.waitUntil || "networkidle2",
       });
+
       await page.waitForSelector(siteConfig.selector, {
         visible: true,
         timeout: siteConfig?.timeout || 15000,
       });
       html = await page.content();
-      page.close();
     } catch (err) {
-      console.log(err);
-      console.log(html);
+      if (err instanceof Error) {
+        throw new ScrapingError({
+          html: initialHtml,
+          url,
+          ...(this.proxyInUse && {
+            proxy: `${this.currentProxy.host}:${this.currentProxy.port}`,
+          }), //Only add proxy info if in use.
+          error: {
+            message: err.message,
+            stack: err?.stack,
+            name: err.name,
+          },
+        });
+      } else {
+        throw err; //Just throw anything else that is not an error
+      }
+    } finally {
+      page.close();
     }
-
     return html;
   }
-  closeBrowser(): void {
+  /**
+   * Function to attempt to scrape the given url, will retry up to 3 times before switching proxy. If all proxies are exhausted, it will give up.
+   * @param url - url to scrape
+   * @param siteConfig - siteConfig to determine when loading is done
+   * @param interceptorConfig - interceptorConfig to determine what to filter to save bandwidth
+   * @returns
+   */
+  async scrapeWithRetry(
+    url: string,
+    siteConfig: SiteConfig,
+    interceptorConfig: InterceptorConfig,
+  ): Promise<string> {
+    let currentAttempt = 0;
+    let proxiesUsed = 1;
+    while (true) {
+      try {
+        const html = await this.scrapePage(url, siteConfig, interceptorConfig);
+        return html;
+      } catch (err) {
+        if (err instanceof ScrapingError) {
+          const detailsJson = JSON.parse(err.message) as ScrapingErrorDetails;
+          console.error("Scrape failed:", {
+            url: detailsJson.url,
+            errorMessage: detailsJson.error.message,
+            errorName: detailsJson.error.name,
+            html: detailsJson.html,
+          });
+        } else {
+          console.log("Scrape failed:", err);
+        }
+        currentAttempt++;
+        console.log(currentAttempt);
+        if (currentAttempt >= 3) {
+          if (proxiesUsed >= this.proxies.length) {
+            throw new Error("All proxies exhausted - giving up.");
+          }
+          console.log("Scraping failed 3 consecutive times, switching proxy");
+          proxiesUsed++;
+          await this.changeProxy();
+          currentAttempt = 0;
+        }
+      }
+    }
+  }
+
+  async closeBrowser(): Promise<void> {
     this.browser?.close();
+  }
+  /**
+   * Used to change the current proxy provider for the scraper.
+   * @param proxyIdx Optional - choice of which proxy to use next, if left empty will just switch to next proxy in rotation.
+   */
+  async changeProxy(proxyIdx?: number): Promise<void> {
+    if (!this.browser) {
+      throw new Error("Browser not initialised");
+    }
+    if (proxyIdx !== undefined) {
+      if (proxyIdx < 0 || proxyIdx >= this.proxies.length) {
+        throw new Error("Index for proxy out of range");
+      }
+      await this.closeBrowser();
+      this.proxyIdx = proxyIdx;
+      await this.initBrowser();
+    } else {
+      await this.closeBrowser();
+      this.proxyIdx = (this.proxyIdx + 1) % this.proxies.length;
+      console.log(
+        `Switching to proxy ${this.currentProxy.host}:${this.currentProxy.port}`,
+      );
+      await this.initBrowser();
+    }
   }
 }
