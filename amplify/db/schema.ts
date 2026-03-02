@@ -1,4 +1,12 @@
-import { integer, pgTable, varchar, text, pgSchema } from "drizzle-orm/pg-core";
+import {
+  integer,
+  pgTable,
+  varchar,
+  text,
+  pgSchema,
+  primaryKey,
+  date,
+} from "drizzle-orm/pg-core";
 const currentSchema = process.env.DB_SCHEMA
   ? pgSchema(process.env.DB_SCHEMA)
   : pgSchema("main"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
@@ -42,3 +50,15 @@ export const productsTable = currentSchema.table("products", {
     .notNull(),
   url: text().notNull(),
 });
+
+export const pricesTable = currentSchema.table(
+  "prices",
+  {
+    product_id: integer()
+      .references(() => productsTable.id, { onDelete: "cascade" })
+      .notNull(),
+    date_recorded: date().notNull(),
+    price: integer(),
+  },
+  (table) => [primaryKey({ columns: [table.product_id, table.date_recorded] })],
+);
