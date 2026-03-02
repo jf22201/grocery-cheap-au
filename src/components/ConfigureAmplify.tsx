@@ -1,5 +1,7 @@
 import { Amplify } from "aws-amplify";
 import { parseAmplifyConfig } from "aws-amplify/utils";
+//TODO: remove the below typecheck ignore once gh actions is able to pull amplify_outputs.
+// @ts-ignore
 import outputs from "@/../amplify_outputs.json";
 import { fetchAuthSession } from "aws-amplify/auth";
 import { Authorization } from "aws-cdk-lib/aws-events";
