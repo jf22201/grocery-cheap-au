@@ -5,6 +5,8 @@ import { subscribeUser, unsubscribeUser, sendNotification } from "../actions"; /
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "aws-amplify/auth";
 import { Amplify } from "aws-amplify";
+//TODO: remove the below typecheck ignore once gh actions is able to pull amplify_outputs.
+// @ts-ignore
 import outputs from "../../../amplify_outputs.json";
 Amplify.configure(outputs);
 function urlBase64ToUint8Array(base64String: string) {
