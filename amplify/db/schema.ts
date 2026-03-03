@@ -10,7 +10,6 @@ import {
 const currentSchema = process.env.DB_SCHEMA
   ? pgSchema(process.env.DB_SCHEMA)
   : pgSchema("main"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
-
 export const usersTable = currentSchema.table("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(), //This is the DB internal primary key for each user
   userId: varchar({ length: 255 }).notNull(), //This is the userid from cognito
@@ -19,7 +18,8 @@ export const usersTable = currentSchema.table("users", {
 
 export const vendorsTable = currentSchema.table("vendors", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  vendor_name: varchar({ length: 255 }),
+  vendor_name: varchar({ length: 255 }).notNull(),
+  vendor_slug: varchar({ length: 255 }).notNull(),
 });
 
 export const comparisonGroupsTable = currentSchema.table("comparison_groups", {
@@ -42,7 +42,6 @@ export const comparisonProductsTable = currentSchema.table(
 export const productsTable = currentSchema.table("products", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   product_name: text().notNull(),
-  price: integer().notNull(),
   vendor_id: integer()
     .references(() => vendorsTable.id, {
       onDelete: "cascade",
