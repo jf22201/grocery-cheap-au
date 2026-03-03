@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Next.js
+.next
+out
+build
+
+# Git
+.git
+.gitignore
+
+# Env files (don't leak secrets)
+.env
+.env*.local
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dev tools
+.eslintrc*
+.prettierrc*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker itself
+Dockerfile
+.dockerignore
+
+# Misc
+README.md

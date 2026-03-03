@@ -1,17 +1,18 @@
 import Scraper from "../scrapers/Scraper";
-import { db } from "@db/index";
-import { pricesTable, productsTable, vendorsTable } from "@db/schema";
-import { ProxyInfo } from "../scrapers/Scraper";
+import { db } from "../../amplify/db/index"; //NOTE : relative paths used here for docker compatibility.
 import {
-  colesInterceptorConfig,
-  colesSiteConfig,
-} from "collector/scrapers/coles";
+  pricesTable,
+  productsTable,
+  vendorsTable,
+} from "../../amplify/db/schema"; //NOTE : relative paths used here for docker compatibility.
+import { ProxyInfo } from "../scrapers/Scraper";
+import { colesInterceptorConfig, colesSiteConfig } from "../scrapers/coles";
 import {
   woolworthsInterceptorConfig,
   woolworthsSiteConfig,
-} from "collector/scrapers/woolworths";
-import { parseColesPage } from "collector/parsers/coles";
-import { parseWoolworthsPage } from "collector/parsers/woolworths";
+} from "../scrapers/woolworths";
+import { parseColesPage } from "../parsers/coles";
+import { parseWoolworthsPage } from "../parsers/woolworths";
 async function main() {
   const vendors = await db.select().from(vendorsTable);
   const vendorIdSlugMap: Record<string, Number> = {};

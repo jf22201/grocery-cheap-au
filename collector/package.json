@@ -1,0 +1,29 @@
+{
+  "name": "collector",
+  "version": "1.0.0",
+  "description": "",
+  "imports": {
+    "#db/*": "../amplify/db/*"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "^0.45.1",
+    "pg": "^8.19.0",
+    "puppeteer-core": "^24.37.5",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.37.5"
+  }
+}
