@@ -54,6 +54,11 @@ Then bootstrap the sandbox environment on AWS for the backend:
 ```bash
 npx ampx sandbox
 ```
+or to pass in your .env file to amplify sandbox:
+
+```bash
+npx dotenvx run --env-file=.env.local -- ampx sandbox
+```
 
 You should now see amplify_outputs.json in the project directory, you can now start the development server:
 
