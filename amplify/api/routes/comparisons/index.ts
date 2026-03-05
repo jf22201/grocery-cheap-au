@@ -68,10 +68,6 @@ comparisons.get("/", async (c) => {
 
 comparisons.post("/", async (c) => {
   //function to check if product already exists and input new values if not
-  const createComparison = async (input: {
-    vendor_slug: string;
-    url: string;
-  }) => {};
   const userId = await getUserId(c);
   const reqBody = await c.req.json();
   //TODO: currently assumes that both url are valid price pages - need validation workflow

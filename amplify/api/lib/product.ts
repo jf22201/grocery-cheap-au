@@ -2,7 +2,7 @@ import axios from "axios";
 export async function scrapeHtml(url: string) {
   const html = await axios
     .post(
-      "https://api.zyte.com/v1/extract",
+      process.env.ZYTE_API_ENDPOINT as string,
       {
         url: url,
         httpResponseBody: true,
