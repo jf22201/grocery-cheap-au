@@ -44,7 +44,7 @@ comparisons.get("/", async (c) => {
   ) latest ON latest.product_id = ${dbSchema}.products.id
   WHERE ${dbSchema}.comparison_groups.user_id = ${userId}
 `);
-  let comparisonProducts = result.rows as ComparisonProduct[];
+  const comparisonProducts = result.rows as ComparisonProduct[];
   //now group together all products with the same group
   const grouped = comparisonProducts.reduce(
     (acc, product) => {
@@ -86,7 +86,7 @@ comparisons.post("/", async (c) => {
       for (const product of products) {
         const { vendor_slug, url } = product;
         //check if this url already exists on the productsTable
-        let productQuery = await tx
+        const productQuery = await tx
           .select({ id: productsTable.id })
           .from(productsTable)
           .where(eq(productsTable.url, url));
