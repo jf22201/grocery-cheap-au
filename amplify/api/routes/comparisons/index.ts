@@ -9,13 +9,12 @@ import {
   productsTable,
   pricesTable,
   VENDOR_IDS,
+  vendorsTable,
 } from "amplify/db/schema";
 import { sql, eq } from "drizzle-orm";
-import { getUserId } from "amplify/api/lib/auth";
+import { getCognitoId, getUserId } from "amplify/api/lib/auth";
 import { scrapeHtml } from "amplify/api/lib/product";
 import { getParser } from "collector/parsers";
-import { ok } from "assert";
-import { TEXT_PLAIN } from "node_modules/hono/dist/types/context";
 type Bindings = {
   event: LambdaEvent;
 }; //Adding AWS lambda specific bindings
@@ -129,3 +128,80 @@ comparisons.post("/", async (c) => {
   }
   return c.json({ message: "ok" }, 200);
 });
+
+comparisons.delete("/", async (c) => {
+  const cognitoId = getCognitoId(c);
+  const reqBody = await c.req.json();
+  const { group_id } = reqBody;
+  const groupToDelete = await db
+    .select({ group_id: comparisonGroupsTable.id })
+    .from(comparisonGroupsTable)
+    .where(eq(comparisonGroupsTable.id, group_id))
+    .innerJoin(usersTable, eq(usersTable.cognito_user_id, cognitoId));
+  if (groupToDelete.length === 0) {
+    //if the query returns nothing then either invalid group id or doesn't exist for this user.
+    return c.json(
+      { error: "Comparison not found or doesn't belong to user." },
+      404,
+    );
+  }
+  //
+  await db
+    .delete(comparisonGroupsTable)
+    .where(eq(comparisonGroupsTable.id, group_id));
+  return c.json({ message: "ok" }, 200);
+});
+//TODO: Figure out how to implement this once FE is done.
+// comparisons.put("/", async (c) => {
+//   const cognitoId = getCognitoId(c);
+//   const reqBody = await c.req.json();
+//   const { group_id, price_alert, insertionProducts } = reqBody;
+//   //this makes the assumption that all existing comparisonGroups have at least 1 corresponding comparisonProduct
+//   const dbGroupAndProducts = await db
+//     .select({
+//       groupId: comparisonGroupsTable.id,
+//       comparisonProductId: comparisonProductsTable.id,
+//       productId: comparisonProductsTable.product_id,
+//       productUrl: productsTable.url,
+//       vendorSlug: vendorsTable.vendor_slug,
+//     })
+//     .from(comparisonGroupsTable)
+//     .where(eq(comparisonGroupsTable.id, group_id))
+//     .innerJoin(usersTable, eq(usersTable.cognito_user_id, cognitoId))
+//     .innerJoin(
+//       comparisonProductsTable,
+//       eq(comparisonProductsTable.group, group_id),
+//     )
+//     .innerJoin(
+//       productsTable,
+//       eq(productsTable.id, comparisonProductsTable.product_id),
+//     )
+//     .innerJoin(vendorsTable, eq(productsTable.vendor_id, vendorsTable.id));
+//   if (dbGroupAndProducts.length === 0) {
+//     //if the query returns nothing then either invalid group id or doesn't exist for this user.
+//     return c.json(
+//       { error: "Comparison not found or doesn't belong to user." },
+//       404,
+//     );
+//   }
+
+//   // do update atomically
+//   await db.transaction(async (tx) => {
+//     await tx
+//       .update(comparisonGroupsTable)
+//       .set({ price_alert })
+//       .where(eq(comparisonGroupsTable.id, group_id));
+//     //determine which products need to be updated
+//     //
+//     let productUpdateMap:Record<string,{comparisonProductId?:Number,newProductId?:Number,newUrl?:string,needsUpdate:boolean,needsScrape:boolean}> = {}
+//     for (const insertionProduct of insertionProducts) {
+//       const { insertionVendorSlug, insertionUrl } = insertionProduct
+//       let currDbProduct = dbGroupAndProducts.find((item)=>(item.vendorSlug === insertionVendorSlug));
+//       if (currDbProduct?.productUrl === insertionUrl){
+//         productUpdateMap[insertionVendorSlug] = {needsScrape:false,needsUpdate:false}
+//       }
+//       else if(currDbProduct.)
+
+//     }
+//   });
+// }
