@@ -18,4 +18,5 @@ export const woolworthsSiteConfig: SiteConfig = {
   name: "Woolworths",
   selector: ".wx-header__container",
   waitUntil: "domcontentloaded",
+  timeout: 5000,
 };

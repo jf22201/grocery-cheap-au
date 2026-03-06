@@ -7,19 +7,24 @@ import {
   primaryKey,
   date,
 } from "drizzle-orm/pg-core";
+//NOTE: vendor ids hardcoded here due to rarely changing on DB, make sure to if changes arise.
+export const VENDOR_IDS: Record<string, number> = {
+  woolworths: 1,
+  coles: 2,
+};
 const currentSchema = process.env.DB_SCHEMA
   ? pgSchema(process.env.DB_SCHEMA)
-  : pgSchema("main"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
-
+  : pgSchema("public"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
 export const usersTable = currentSchema.table("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(), //This is the DB internal primary key for each user
-  userId: varchar({ length: 255 }).notNull(), //This is the userid from cognito
+  cognito_user_id: varchar({ length: 255 }).notNull(), //This is the userid from cognito
   email: varchar({ length: 255 }).notNull(),
 });
 
 export const vendorsTable = currentSchema.table("vendors", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  vendor_name: varchar({ length: 255 }),
+  vendor_name: varchar({ length: 255 }).notNull(),
+  vendor_slug: varchar({ length: 255 }).notNull(),
 });
 
 export const comparisonGroupsTable = currentSchema.table("comparison_groups", {
@@ -42,7 +47,6 @@ export const comparisonProductsTable = currentSchema.table(
 export const productsTable = currentSchema.table("products", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   product_name: text().notNull(),
-  price: integer().notNull(),
   vendor_id: integer()
     .references(() => vendorsTable.id, {
       onDelete: "cascade",

@@ -9,7 +9,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
   //insert record into db
   try {
     await db.insert(usersTable).values({
-      userId,
+      cognito_user_id: userId,
       email,
     });
   } catch (err) {

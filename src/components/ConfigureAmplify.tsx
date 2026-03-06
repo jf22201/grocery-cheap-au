@@ -15,8 +15,8 @@ export default async function ConfigureAmplify() {
   } catch (err) {
     auth = null;
   }
-  const authToken = auth?.tokens?.idToken?.toString();
-
+  const authToken = auth?.tokens?.accessToken?.toString();
+  console.log(authToken);
   Amplify.configure(
     {
       ...amplifyConfig,

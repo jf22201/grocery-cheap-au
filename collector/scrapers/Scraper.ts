@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import { Browser, Page, PuppeteerLifeCycleEvent } from "puppeteer";
-import { error } from "console";
+import { Browser, PuppeteerLifeCycleEvent } from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 const randomDelay = (min: number, max: number) =>
   new Promise((resolve) =>
     setTimeout(resolve, Math.random() * (max - min) + min),
@@ -114,7 +114,15 @@ export default class Scraper {
   }
   async initBrowser(...extraArgs: string[]): Promise<void> {
     puppeteer.use(StealthPlugin());
-    let args = ["--no-sandbox", "--disable-setuid-sandbox", ...extraArgs];
+    let args = [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--single-process",
+      "--disable-gpu",
+      "--disable-dev-shm-usage",
+      "--no-zygote",
+      ...extraArgs,
+    ];
     if (this.proxyInUse) {
       //add proxy arg if proxy in use
       args.push(
@@ -124,6 +132,7 @@ export default class Scraper {
     this.browser = await puppeteer.launch({
       headless: true,
       args: args,
+      executablePath: await chromium.executablePath(),
     });
   }
   /**

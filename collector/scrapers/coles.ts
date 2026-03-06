@@ -4,6 +4,7 @@ export const colesSiteConfig: SiteConfig = {
   name: "Coles",
   selector: ".product__title",
   waitUntil: "domcontentloaded",
+  timeout: 5000,
 };
 
 export const colesInterceptorConfig: InterceptorConfig = {
