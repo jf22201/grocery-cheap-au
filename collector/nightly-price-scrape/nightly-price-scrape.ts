@@ -4,6 +4,7 @@ import {
   pricesTable,
   productsTable,
   vendorsTable,
+  VENDOR_IDS,
 } from "../../amplify/db/schema"; //NOTE : relative paths used here for docker compatibility.
 import { ProxyInfo } from "../scrapers/Scraper";
 import { colesInterceptorConfig, colesSiteConfig } from "../scrapers/coles";
@@ -14,11 +15,7 @@ import {
 import { parseColesPage } from "../parsers/coles";
 import { parseWoolworthsPage } from "../parsers/woolworths";
 async function main() {
-  const vendors = await db.select().from(vendorsTable);
-  const vendorIdSlugMap: Record<string, Number> = {};
-  for (const vendor of vendors) {
-    vendorIdSlugMap[vendor.vendor_slug] = vendor.id;
-  }
+  const vendorIdSlugMap: Record<string, Number> = VENDOR_IDS;
   const allProducts = await db.select().from(productsTable);
   //get latest proxy info
   const proxyRes = await fetch(process.env.PROXY_PROVIDER_ENDPOINT as string, {
