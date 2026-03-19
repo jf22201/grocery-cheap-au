@@ -7,6 +7,7 @@ export const api = defineFunction({
     DB_SCHEMA: secret("DB_SCHEMA") || "main",
     DATABASE_URL: secret("DATABASE_URL"),
     ZYTE_API_KEY: secret("ZYTE_API_KEY"),
+    ZYTE_API_ENDPOINT: secret("ZYTE_API_ENDPOINT"),
   },
   // optionally specify a path to your handler (defaults to "./handler.ts")
   entry: "./index.ts",

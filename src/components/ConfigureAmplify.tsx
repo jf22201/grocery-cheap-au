@@ -1,40 +1,45 @@
 import { Amplify } from "aws-amplify";
 import { parseAmplifyConfig } from "aws-amplify/utils";
+import { fetchAuthSession, getCurrentUser } from "aws-amplify/auth";
 //TODO: remove the below typecheck ignore once gh actions is able to pull amplify_outputs.
 // @ts-ignore
 import outputs from "@/../amplify_outputs.json";
-import { fetchAuthSession } from "aws-amplify/auth";
-import { Authorization } from "aws-cdk-lib/aws-events";
-export default async function ConfigureAmplify() {
-  Amplify.configure(outputs); //Need to do this initial configuration otherwise fetchAuthSession will fail.
+
+export default function ConfigureAmplify() {
   const amplifyConfig = parseAmplifyConfig(outputs);
-  //get auth session details to fill out the Auth header.
-  let auth;
-  try {
-    auth = await fetchAuthSession();
-  } catch (err) {
-    auth = null;
-  }
-  const authToken = auth?.tokens?.accessToken?.toString();
-  console.log(authToken);
+
   Amplify.configure(
     {
       ...amplifyConfig,
       API: {
         ...amplifyConfig.API,
-        REST: outputs.custom.API, // ← Required for custom REST APIs
+        REST: outputs.custom.API,
       },
     },
     {
       API: {
         REST: {
           retryStrategy: {
-            strategy: "no-retry", // Overrides default retry strategy
+            strategy: "no-retry",
           },
           headers: async () => {
-            return authToken
-              ? { Authorization: authToken }
-              : ({} as Record<string, string>);
+            const headers: Record<string, string> = {};
+
+            try {
+              await getCurrentUser();
+              const auth = await fetchAuthSession();
+              const authToken =
+                auth.tokens?.accessToken?.toString() ||
+                auth.tokens?.idToken?.toString();
+
+              if (authToken) {
+                headers.Authorization = authToken;
+              }
+            } catch {
+              return headers;
+            }
+
+            return headers;
           },
         },
       },

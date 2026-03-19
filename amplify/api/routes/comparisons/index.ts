@@ -15,6 +15,10 @@ import { sql, eq } from "drizzle-orm";
 import { getCognitoId, getUserId } from "amplify/api/lib/auth";
 import { scrapeHtml } from "amplify/api/lib/product";
 import { getParser } from "collector/parsers";
+import {
+  extractProductIdFromUrl,
+  validateAndNormaliseUrl,
+} from "src/lib/validators/url";
 type Bindings = {
   event: LambdaEvent;
 }; //Adding AWS lambda specific bindings
@@ -26,13 +30,14 @@ type ComparisonProduct = {
   vendor_slug: string;
   price_alert: number;
   url: string;
+  name: string;
 };
 export const comparisons = new Hono<{ Bindings: Bindings }>();
 
 comparisons.get("/", async (c) => {
-  const userId = getUserId(c);
+  const userId = await getUserId(c);
   const result = await db.execute(sql`
-  SELECT latest.price, products.product_name, products.id AS product_id, comparison_products.group, vendors.vendor_slug, comparison_groups.price_alert, products.url 
+  SELECT latest.price, products.product_name, products.id AS product_id, comparison_products.group, vendors.vendor_slug, comparison_groups.price_alert, products.url,comparison_groups.name
   FROM ${dbSchema}.comparison_groups 
   JOIN ${dbSchema}.comparison_products ON ${dbSchema}.comparison_groups.id = ${dbSchema}.comparison_products.group
   JOIN ${dbSchema}.products ON ${dbSchema}.comparison_products.product_id = ${dbSchema}.products.id
@@ -45,9 +50,15 @@ comparisons.get("/", async (c) => {
   WHERE ${dbSchema}.comparison_groups.user_id = ${userId}
 `);
   const comparisonProducts = result.rows as ComparisonProduct[];
+  const groupInfo = {} as Record<number, { name: string; price_alert: number }>;
   //now group together all products with the same group
   const grouped = comparisonProducts.reduce(
     (acc, product) => {
+      //store record of the comparison group name for this product group id
+      groupInfo[product.group] = {
+        name: product.name,
+        price_alert: product.price_alert,
+      };
       const key = product.group;
       if (!acc[key]) {
         acc[key] = [];
@@ -58,8 +69,10 @@ comparisons.get("/", async (c) => {
     {} as Record<number, ComparisonProduct[]>,
   );
   const groupedArray = Object.entries(grouped).map(([groupId, products]) => ({
-    groupId: groupId,
+    groupId: parseInt(groupId), //need to parse this as int as object keys are always strings
     products,
+    name: groupInfo[parseInt(groupId)].name,
+    price_alert: groupInfo[parseInt(groupId)].price_alert,
   }));
 
   return c.json(groupedArray);
@@ -67,11 +80,31 @@ comparisons.get("/", async (c) => {
 
 comparisons.post("/", async (c) => {
   //function to check if product already exists and input new values if not
-  const userId = await getUserId(c);
-  const reqBody = await c.req.json();
-  //TODO: currently assumes that both url are valid price pages - need validation workflow
-  const { price_alert, products } = reqBody;
   try {
+    const userId = await getUserId(c);
+    const reqBody = await c.req.json();
+    //TODO: currently assumes that both url are valid price pages - need validation workflow
+    const {
+      price_alert,
+      products,
+      name,
+    }: {
+      price_alert: number;
+      products: { vendor_slug: string; url: string }[];
+      name: string;
+    } = reqBody;
+    //validate product urls
+    for (const product of products) {
+      const normalisedUrl = validateAndNormaliseUrl(
+        product.url,
+        product.vendor_slug,
+      );
+      if (!normalisedUrl) {
+        throw new Error("Invalid product URL in request body");
+      }
+      product.url = normalisedUrl;
+    }
+    //TODO: insert priceAlert validation here
     //need to treat creation of comparisonGroup + comparisonProducts as 1 atomic unit
     await db.transaction(async (tx) => {
       //create group
@@ -80,6 +113,7 @@ comparisons.post("/", async (c) => {
         .values({
           user_id: userId,
           price_alert,
+          name,
         })
         .returning();
       const groupId = newGroup?.id;
@@ -96,6 +130,7 @@ comparisons.post("/", async (c) => {
           const pageHtml = await scrapeHtml(url);
           const parser = getParser(vendor_slug);
           const { name, price } = parser(pageHtml);
+          const vendorProductId = extractProductIdFromUrl(url, vendor_slug);
           //insert new product record
           const [{ id }] = await tx
             .insert(productsTable)
@@ -103,28 +138,34 @@ comparisons.post("/", async (c) => {
               product_name: name,
               vendor_id: VENDOR_IDS[vendor_slug],
               url,
+              vendor_product_id: vendorProductId,
             })
             .returning();
           productId = id;
-          //insert new price record
-          await tx.insert(pricesTable).values({
-            product_id: productId,
-            date_recorded: new Date().toISOString().split("T")[0], //record the current date (YYYY-MM-DD)
-            price: price,
-          });
+          //insert new price record and comparisonProduct entry
+          Promise.all([
+            tx.insert(pricesTable).values({
+              product_id: productId,
+              date_recorded: new Date().toISOString().split("T")[0], //record the current date (YYYY-MM-DD)
+              price: price,
+            }),
+            tx
+              .insert(comparisonProductsTable)
+              .values({ group: groupId, product_id: productId }),
+          ]);
         } else {
-          //product does exist already - no need to create new product entry
+          //product does exist already - only need to create comparisonProduct entry
           productId = productQuery[0].id;
+          await tx.insert(comparisonProductsTable).values({
+            group: groupId,
+            product_id: productId,
+          });
         }
-        //create new comparisonProduct entry
-        await tx.insert(comparisonProductsTable).values({
-          group: groupId,
-          product_id: productId,
-        });
       }
     });
   } catch (err) {
-    return c.json({ message: "error" }, 500);
+    throw err;
+    return c.json({ error: (err as Error).message }, 500);
   }
   return c.json({ message: "ok" }, 200);
 });
