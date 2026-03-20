@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { LambdaEvent } from "hono/aws-lambda";
 // import { db } from "../../../db";
+import { Logger } from "@aws-lambda-powertools/logger";
 import { db, dbSchema } from "amplify/db";
 import {
   usersTable,
@@ -19,6 +20,7 @@ import {
   extractProductIdFromUrl,
   validateAndNormaliseUrl,
 } from "src/lib/validators/url";
+import { getRequestContext, logEndpointError } from "amplify/api/lib/logging";
 type Bindings = {
   event: LambdaEvent;
 }; //Adding AWS lambda specific bindings
@@ -32,11 +34,19 @@ type ComparisonProduct = {
   url: string;
   name: string;
 };
+
+const logger = new Logger({ serviceName: "comparisons-api" });
+
 export const comparisons = new Hono<{ Bindings: Bindings }>();
 
 comparisons.get("/", async (c) => {
-  const userId = await getUserId(c);
-  const result = await db.execute(sql`
+  const requestContext = getRequestContext(c);
+  logger.appendKeys({ requestId: requestContext.requestId });
+  logger.info("GET /comparisons started", requestContext);
+  try {
+    const userId = await getUserId(c);
+    logger.debug("Resolved user for GET /comparisons", { userId });
+    const result = await db.execute(sql`
   SELECT latest.price, products.product_name, products.id AS product_id, comparison_products.group, vendors.vendor_slug, comparison_groups.price_alert, products.url,comparison_groups.name
   FROM ${dbSchema}.comparison_groups 
   JOIN ${dbSchema}.comparison_products ON ${dbSchema}.comparison_groups.id = ${dbSchema}.comparison_products.group
@@ -49,38 +59,57 @@ comparisons.get("/", async (c) => {
   ) latest ON latest.product_id = ${dbSchema}.products.id
   WHERE ${dbSchema}.comparison_groups.user_id = ${userId}
 `);
-  const comparisonProducts = result.rows as ComparisonProduct[];
-  const groupInfo = {} as Record<number, { name: string; price_alert: number }>;
-  //now group together all products with the same group
-  const grouped = comparisonProducts.reduce(
-    (acc, product) => {
-      //store record of the comparison group name for this product group id
-      groupInfo[product.group] = {
-        name: product.name,
-        price_alert: product.price_alert,
-      };
-      const key = product.group;
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(product);
-      return acc;
-    },
-    {} as Record<number, ComparisonProduct[]>,
-  );
-  const groupedArray = Object.entries(grouped).map(([groupId, products]) => ({
-    groupId: parseInt(groupId), //need to parse this as int as object keys are always strings
-    products,
-    name: groupInfo[parseInt(groupId)].name,
-    price_alert: groupInfo[parseInt(groupId)].price_alert,
-  }));
+    const comparisonProducts = result.rows as ComparisonProduct[];
+    logger.info("Fetched comparison products", {
+      userId,
+      rowCount: comparisonProducts.length,
+    });
+    const groupInfo = {} as Record<
+      number,
+      { name: string; price_alert: number }
+    >;
+    //now group together all products with the same group
+    const grouped = comparisonProducts.reduce(
+      (acc, product) => {
+        //store record of the comparison group name for this product group id
+        groupInfo[product.group] = {
+          name: product.name,
+          price_alert: product.price_alert,
+        };
+        const key = product.group;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(product);
+        return acc;
+      },
+      {} as Record<number, ComparisonProduct[]>,
+    );
+    const groupedArray = Object.entries(grouped).map(([groupId, products]) => ({
+      groupId: parseInt(groupId), //need to parse this as int as object keys are always strings
+      products,
+      name: groupInfo[parseInt(groupId)].name,
+      price_alert: groupInfo[parseInt(groupId)].price_alert,
+    }));
 
-  return c.json(groupedArray);
+    logger.info("GET /comparisons completed", {
+      userId,
+      groupCount: groupedArray.length,
+    });
+
+    return c.json(groupedArray);
+  } catch (err) {
+    logEndpointError("GET /comparisons failed", err, requestContext.requestId);
+    return c.json({ error: "Internal server error" }, 500);
+  }
 });
 
 comparisons.post("/", async (c) => {
+  const requestContext = getRequestContext(c);
+  logger.appendKeys({ requestId: requestContext.requestId });
   //function to check if product already exists and input new values if not
   try {
+    logger.info("POST /comparisons started", requestContext);
     const userId = await getUserId(c);
     const reqBody = await c.req.json();
     //TODO: currently assumes that both url are valid price pages - need validation workflow
@@ -93,6 +122,14 @@ comparisons.post("/", async (c) => {
       products: { vendor_slug: string; url: string }[];
       name: string;
     } = reqBody;
+
+    logger.debug("Parsed POST /comparisons payload", {
+      userId,
+      name,
+      productCount: products.length,
+      price_alert,
+    });
+
     //validate product urls
     for (const product of products) {
       const normalisedUrl = validateAndNormaliseUrl(
@@ -100,6 +137,11 @@ comparisons.post("/", async (c) => {
         product.vendor_slug,
       );
       if (!normalisedUrl) {
+        logger.warn("Invalid product URL in POST /comparisons payload", {
+          userId,
+          vendor_slug: product.vendor_slug,
+          url: product.url,
+        });
         throw new Error("Invalid product URL in request body");
       }
       product.url = normalisedUrl;
@@ -117,6 +159,7 @@ comparisons.post("/", async (c) => {
         })
         .returning();
       const groupId = newGroup?.id;
+      logger.info("Created comparison group", { userId, groupId, name });
       for (const product of products) {
         const { vendor_slug, url } = product;
         //check if this url already exists on the productsTable
@@ -126,6 +169,11 @@ comparisons.post("/", async (c) => {
           .where(eq(productsTable.url, url));
         let productId;
         if (productQuery.length === 0) {
+          logger.debug("Product not found in DB, scraping", {
+            groupId,
+            vendor_slug,
+            url,
+          });
           //Product doesn't exist yet - need to create new product and price entry for this url
           const pageHtml = await scrapeHtml(url);
           const parser = getParser(vendor_slug);
@@ -142,8 +190,14 @@ comparisons.post("/", async (c) => {
             })
             .returning();
           productId = id;
+          logger.info("Created product for comparison group", {
+            groupId,
+            productId,
+            vendor_slug,
+            url,
+          });
           //insert new price record and comparisonProduct entry
-          Promise.all([
+          await Promise.all([
             tx.insert(pricesTable).values({
               product_id: productId,
               date_recorded: new Date().toISOString().split("T")[0], //record the current date (YYYY-MM-DD)
@@ -153,6 +207,10 @@ comparisons.post("/", async (c) => {
               .insert(comparisonProductsTable)
               .values({ group: groupId, product_id: productId }),
           ]);
+          logger.debug("Inserted initial price and group mapping", {
+            groupId,
+            productId,
+          });
         } else {
           //product does exist already - only need to create comparisonProduct entry
           productId = productQuery[0].id;
@@ -160,37 +218,63 @@ comparisons.post("/", async (c) => {
             group: groupId,
             product_id: productId,
           });
+          logger.debug("Linked existing product to comparison group", {
+            groupId,
+            productId,
+            vendor_slug,
+          });
         }
       }
     });
   } catch (err) {
-    throw err;
+    logEndpointError("POST /comparisons failed", err, requestContext.requestId);
     return c.json({ error: (err as Error).message }, 500);
   }
+  logger.info("POST /comparisons completed", {
+    requestId: requestContext.requestId,
+  });
   return c.json({ message: "ok" }, 200);
 });
 
 comparisons.delete("/", async (c) => {
-  const cognitoId = getCognitoId(c);
-  const reqBody = await c.req.json();
-  const { group_id } = reqBody;
-  const groupToDelete = await db
-    .select({ group_id: comparisonGroupsTable.id })
-    .from(comparisonGroupsTable)
-    .where(eq(comparisonGroupsTable.id, group_id))
-    .innerJoin(usersTable, eq(usersTable.cognito_user_id, cognitoId));
-  if (groupToDelete.length === 0) {
-    //if the query returns nothing then either invalid group id or doesn't exist for this user.
-    return c.json(
-      { error: "Comparison not found or doesn't belong to user." },
-      404,
+  const requestContext = getRequestContext(c);
+  logger.appendKeys({ requestId: requestContext.requestId });
+  logger.info("DELETE /comparisons started", requestContext);
+  try {
+    const cognitoId = getCognitoId(c);
+    const reqBody = await c.req.json();
+    const { group_id } = reqBody;
+    logger.debug("DELETE /comparisons payload", { cognitoId, group_id });
+    const groupToDelete = await db
+      .select({ group_id: comparisonGroupsTable.id })
+      .from(comparisonGroupsTable)
+      .where(eq(comparisonGroupsTable.id, group_id))
+      .innerJoin(usersTable, eq(usersTable.cognito_user_id, cognitoId));
+    if (groupToDelete.length === 0) {
+      //if the query returns nothing then either invalid group id or doesn't exist for this user.
+      logger.warn("Comparison group not found for delete", {
+        cognitoId,
+        group_id,
+      });
+      return c.json(
+        { error: "Comparison not found or doesn't belong to user." },
+        404,
+      );
+    }
+    //
+    await db
+      .delete(comparisonGroupsTable)
+      .where(eq(comparisonGroupsTable.id, group_id));
+    logger.info("DELETE /comparisons completed", { cognitoId, group_id });
+    return c.json({ message: "ok" }, 200);
+  } catch (err) {
+    logEndpointError(
+      "DELETE /comparisons failed",
+      err,
+      requestContext.requestId,
     );
+    return c.json({ error: "Internal server error" }, 500);
   }
-  //
-  await db
-    .delete(comparisonGroupsTable)
-    .where(eq(comparisonGroupsTable.id, group_id));
-  return c.json({ message: "ok" }, 200);
 });
 //TODO: Figure out how to implement this once FE is done.
 // comparisons.put("/", async (c) => {

@@ -11,6 +11,7 @@
     "test": "echo 'no tests yet' && exit 0"
   },
   "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.32.0",
     "@hookform/resolvers": "^5.2.2",
     "@sparticuz/chromium": "^143.0.4",
     "aws-amplify": "^6.16.2",
