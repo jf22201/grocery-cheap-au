@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   Card,
@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { set } from "react-hook-form";
 
 type Product = {
   price: number;
@@ -31,7 +32,7 @@ type ProductComparisonsProps = {
   comparisons: ComparisonGroup[];
   isLoading: boolean;
   onDeleteGroup?: (groupId: number) => void;
-  deletingGroupId?: number | null;
+  deletingGroupId: number | null;
 };
 
 function formatPrice(price: number) {
@@ -47,13 +48,14 @@ export default function ProductComparisonCard({
   const [confirmingGroupId, setConfirmingGroupId] = useState<number | null>(
     null,
   );
-
-  useEffect(() => {
-    //reset confirming group id after the deletion has been completed
-    if (deletingGroupId !== null) {
-      setConfirmingGroupId(null);
-    }
-  }, [deletingGroupId]);
+  const [prevDeletingGroupId, setPrevDeletingGroupId] = useState<number | null>(
+    null,
+  );
+  //reset confirming group id if we have started deleting a new group since the last render
+  if (prevDeletingGroupId !== deletingGroupId) {
+    setConfirmingGroupId(null);
+    setPrevDeletingGroupId(deletingGroupId);
+  }
 
   const handleDeleteClick = (groupId: number) => {
     if (deletingGroupId === groupId) {
