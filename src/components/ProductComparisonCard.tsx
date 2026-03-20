@@ -21,7 +21,7 @@ type Product = {
   url: string;
 };
 
-type ComparisonGroup = {
+export type ComparisonGroup = {
   groupId: number;
   name: string;
   price_alert: number;

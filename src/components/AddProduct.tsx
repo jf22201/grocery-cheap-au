@@ -22,12 +22,15 @@ import {
   woolworthsProductPathRegex,
 } from "@/lib/validators/url";
 import { toast } from "sonner";
+import { ComparisonGroup } from "./ProductComparisonCard";
 export default function AddProduct({
   open,
   onOpenChange,
+  onAddGroup,
 }: {
   open: boolean;
   onOpenChange: Dispatch<SetStateAction<boolean>>;
+  onAddGroup: (newGroup: ComparisonGroup) => void;
 }) {
   const [woolworthsUrl, setWoolworthsUrl] = useState("");
   const [colesUrl, setColesUrl] = useState("");
@@ -75,7 +78,8 @@ export default function AddProduct({
     };
     console.log(reqBody);
     try {
-      const res = await apiPost("comparisons", reqBody);
+      const newComparison = await apiPost("comparisons", reqBody);
+      onAddGroup(newComparison as ComparisonGroup);
     } catch (error) {
       toast.error(
         "An error occurred while adding the comparison. Please try again.",
@@ -84,6 +88,7 @@ export default function AddProduct({
       setIsLoading(false);
       return;
     }
+
     toast.success("Product added successfully!", { position: "top-center" });
     setIsLoading(false);
     onOpenChange(false);

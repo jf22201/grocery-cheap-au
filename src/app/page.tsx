@@ -18,7 +18,7 @@ type Product = {
   group: number;
   url: string;
 };
-type ComparisonGroup = {
+export type ComparisonGroup = {
   groupId: number;
   name: string;
   price_alert: number;
@@ -60,6 +60,9 @@ export default function Page() {
     try {
       setDeletingGroupId(groupId);
       await apiDelete("/comparisons", { group_id: groupId });
+      toast.success("Comparison group deleted successfully", {
+        position: "top-center",
+      });
       setComparisons((prev) =>
         prev.filter((group) => group.groupId !== groupId),
       );
@@ -71,6 +74,9 @@ export default function Page() {
     } finally {
       setDeletingGroupId(null);
     }
+  };
+  const addComparisonGroup = (newGroup: ComparisonGroup) => {
+    setComparisons((prev) => [...prev, newGroup]);
   };
 
   return (
@@ -105,7 +111,11 @@ export default function Page() {
           />
         </div>
       </div>
-      <AddProduct open={showModal} onOpenChange={setShowModal} />
+      <AddProduct
+        open={showModal}
+        onOpenChange={setShowModal}
+        onAddGroup={addComparisonGroup}
+      />
     </div>
   );
 }

@@ -35,6 +35,49 @@ type ComparisonProduct = {
   name: string;
 };
 
+type RenderableComparisonProduct = {
+  price: number;
+  product_name: string;
+  product_id: number;
+  vendor_slug: string;
+  group: number;
+  url: string;
+};
+
+type RenderableComparisonGroup = {
+  groupId: number;
+  name: string;
+  price_alert: number;
+  products: RenderableComparisonProduct[];
+};
+
+function groupComparisonProducts(comparisonProducts: ComparisonProduct[]) {
+  const groupInfo = {} as Record<number, { name: string; price_alert: number }>;
+
+  const grouped = comparisonProducts.reduce(
+    (acc, product) => {
+      groupInfo[product.group] = {
+        name: product.name,
+        price_alert: product.price_alert,
+      };
+      const key = product.group;
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(product);
+      return acc;
+    },
+    {} as Record<number, ComparisonProduct[]>,
+  );
+
+  return Object.entries(grouped).map(([groupId, products]) => ({
+    groupId: parseInt(groupId),
+    products,
+    name: groupInfo[parseInt(groupId)].name,
+    price_alert: groupInfo[parseInt(groupId)].price_alert,
+  }));
+}
+
 const logger = new Logger({ serviceName: "comparisons-api" });
 
 export const comparisons = new Hono<{ Bindings: Bindings }>();
@@ -64,33 +107,7 @@ comparisons.get("/", async (c) => {
       userId,
       rowCount: comparisonProducts.length,
     });
-    const groupInfo = {} as Record<
-      number,
-      { name: string; price_alert: number }
-    >;
-    //now group together all products with the same group
-    const grouped = comparisonProducts.reduce(
-      (acc, product) => {
-        //store record of the comparison group name for this product group id
-        groupInfo[product.group] = {
-          name: product.name,
-          price_alert: product.price_alert,
-        };
-        const key = product.group;
-        if (!acc[key]) {
-          acc[key] = [];
-        }
-        acc[key].push(product);
-        return acc;
-      },
-      {} as Record<number, ComparisonProduct[]>,
-    );
-    const groupedArray = Object.entries(grouped).map(([groupId, products]) => ({
-      groupId: parseInt(groupId), //need to parse this as int as object keys are always strings
-      products,
-      name: groupInfo[parseInt(groupId)].name,
-      price_alert: groupInfo[parseInt(groupId)].price_alert,
-    }));
+    const groupedArray = groupComparisonProducts(comparisonProducts);
 
     logger.info("GET /comparisons completed", {
       userId,
@@ -148,6 +165,7 @@ comparisons.post("/", async (c) => {
     }
     //TODO: insert priceAlert validation here
     //need to treat creation of comparisonGroup + comparisonProducts as 1 atomic unit
+    let createdGroup: RenderableComparisonGroup | null = null;
     await db.transaction(async (tx) => {
       //create group
       const [newGroup] = await tx
@@ -159,6 +177,15 @@ comparisons.post("/", async (c) => {
         })
         .returning();
       const groupId = newGroup?.id;
+      if (!groupId) {
+        throw new Error("Failed to create comparison group");
+      }
+      createdGroup = {
+        groupId,
+        name,
+        price_alert,
+        products: [],
+      };
       logger.info("Created comparison group", { userId, groupId, name });
       for (const product of products) {
         const { vendor_slug, url } = product;
@@ -174,7 +201,8 @@ comparisons.post("/", async (c) => {
             vendor_slug,
             url,
           });
-          //Product doesn't exist yet - need to create new product and price entry for this url
+          //Product doesn't exist yet on products table - need to create new product and price entry for this url
+          //TODO refactor this to use Promise.all for parllelisation if it becomes a bottleneck (AWS api gateway timeout is 30s)
           const pageHtml = await scrapeHtml(url);
           const parser = getParser(vendor_slug);
           const { name, price } = parser(pageHtml);
@@ -207,16 +235,62 @@ comparisons.post("/", async (c) => {
               .insert(comparisonProductsTable)
               .values({ group: groupId, product_id: productId }),
           ]);
+          createdGroup.products.push({
+            price,
+            product_name: name,
+            product_id: productId,
+            vendor_slug,
+            group: groupId,
+            url,
+          });
           logger.debug("Inserted initial price and group mapping", {
             groupId,
             productId,
           });
         } else {
-          //product does exist already - only need to create comparisonProduct entry
+          //product does exist in products table already - only need to create comparisonProduct entry
           productId = productQuery[0].id;
           await tx.insert(comparisonProductsTable).values({
             group: groupId,
             product_id: productId,
+          });
+
+          const existingProductResult = await tx.execute(sql`
+            SELECT
+              ${dbSchema}.products.id AS product_id,
+              ${dbSchema}.products.product_name,
+              ${dbSchema}.vendors.vendor_slug,
+              ${dbSchema}.products.url,
+              ${dbSchema}.prices.price
+            FROM ${dbSchema}.products
+            JOIN ${dbSchema}.vendors ON ${dbSchema}.products.vendor_id = ${dbSchema}.vendors.id
+            JOIN ${dbSchema}.prices ON ${dbSchema}.prices.product_id = ${dbSchema}.products.id
+            WHERE ${dbSchema}.products.id = ${productId}
+            ORDER BY ${dbSchema}.prices.date_recorded DESC
+            LIMIT 1
+          `);
+
+          const existingProduct = existingProductResult.rows[0] as
+            | {
+                product_id: number;
+                product_name: string;
+                vendor_slug: string;
+                url: string;
+                price: number;
+              }
+            | undefined;
+
+          if (!existingProduct) {
+            throw new Error("Failed to load existing product details");
+          }
+
+          createdGroup.products.push({
+            price: existingProduct.price,
+            product_name: existingProduct.product_name,
+            product_id: existingProduct.product_id,
+            vendor_slug: existingProduct.vendor_slug,
+            group: groupId,
+            url: existingProduct.url,
           });
           logger.debug("Linked existing product to comparison group", {
             groupId,
@@ -226,14 +300,22 @@ comparisons.post("/", async (c) => {
         }
       }
     });
+
+    if (!createdGroup) {
+      throw new Error("Failed to create comparison group");
+    }
+    const createdGroupResponse = createdGroup as RenderableComparisonGroup;
+
+    logger.info("POST /comparisons completed", {
+      requestId: requestContext.requestId,
+      createdGroupId: createdGroupResponse.groupId,
+    });
+
+    return c.json(createdGroupResponse, 201);
   } catch (err) {
     logEndpointError("POST /comparisons failed", err, requestContext.requestId);
     return c.json({ error: (err as Error).message }, 500);
   }
-  logger.info("POST /comparisons completed", {
-    requestId: requestContext.requestId,
-  });
-  return c.json({ message: "ok" }, 200);
 });
 
 comparisons.delete("/", async (c) => {
