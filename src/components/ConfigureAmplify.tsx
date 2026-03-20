@@ -36,6 +36,7 @@ export default function ConfigureAmplify() {
                 headers.Authorization = authToken;
               }
             } catch {
+              //getCurrentUser will throw if there is no user.
               return headers;
             }
 

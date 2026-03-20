@@ -35,10 +35,15 @@ export async function apiPut(apiPath: string, requestBody: DocumentType) {
   return body.json();
 }
 
-export async function apiDelete(apiPath: string) {
+export async function apiDelete(apiPath: string, requestBody?: DocumentType) {
   const { body } = await del({
     apiName: API_NAME,
     path: apiPath,
+    options: requestBody
+      ? {
+          body: requestBody,
+        }
+      : undefined,
   }).response;
   return body.json();
 }

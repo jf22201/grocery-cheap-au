@@ -1,54 +1,80 @@
+/**
+ * Validates and normalises a product URL for a supported vendor.
+ *
+ * - Ensures the URL has a protocol (defaults to `https://` if omitted).
+ * - Ensures the hostname matches the expected vendor hostname.
+ * - Ensures the pathname matches the expected vendor product path format.
+ * - Returns a canonical URL with protocol + hostname + pathname only.
+ *
+ * @param inputUrl Raw product URL from user input.
+ * @param vendor_slug Vendor identifier (currently `woolworths` or `coles`).
+ * @returns A normalised product URL.
+ * @throws {Error} If the vendor slug is unsupported, the URL is invalid, the
+ * hostname does not match the vendor, or the path is not a valid product path.
+ */
 export function validateAndNormaliseUrl(
   inputUrl: string,
   vendor_slug: string,
-): string | undefined {
+): string {
   const urlWithProtocol = inputUrl.startsWith("http")
     ? inputUrl
     : `https://${inputUrl}`;
+  let parsedUrl: URL;
   try {
-    let vendorHostname;
-    let vendorProductPathRegex;
-    const parsedUrl = new URL(urlWithProtocol);
-    //if the hostname doesn't have www. add it
-    const hostname = parsedUrl.hostname.startsWith("www.")
-      ? parsedUrl.hostname
-      : `www.${parsedUrl.hostname}`;
-    //select regex and hostname to compare with.
-    switch (vendor_slug) {
-      case "woolworths":
-        vendorHostname = woolworthsHostname;
-        vendorProductPathRegex = woolworthsProductPathRegex;
-        break;
-      case "coles":
-        vendorHostname = colesHostname;
-        vendorProductPathRegex = colesProductPathRegex;
-        break;
-      default:
-        throw new Error("invalid vendor slug!");
-    }
-    if (hostname !== vendorHostname) {
-      console.log("inputhostname fail");
-      throw new Error();
-      //check if the path matches expected pattern of a product
-    } else if (!vendorProductPathRegex.test(parsedUrl.pathname)) {
-      console.log("product path fail");
-      throw new Error();
-    }
-    return parsedUrl.protocol + "//" + hostname + parsedUrl.pathname;
-  } catch (err) {
-    if (err instanceof Error && err.message == "invalid vendor slug!") {
-      throw new Error("invalid vendor slug!"); //TODO: perhaps need to update this exec
-    } else {
-      return "";
-    }
+    parsedUrl = new URL(urlWithProtocol);
+  } catch {
+    throw new Error(`Invalid URL format: ${inputUrl}`);
   }
+
+  let vendorHostname: string;
+  let vendorProductPathRegex: RegExp;
+
+  switch (vendor_slug) {
+    case "woolworths":
+      vendorHostname = woolworthsHostname;
+      vendorProductPathRegex = woolworthsProductPathRegex;
+      break;
+    case "coles":
+      vendorHostname = colesHostname;
+      vendorProductPathRegex = colesProductPathRegex;
+      break;
+    default:
+      throw new Error(`Invalid vendor slug: ${vendor_slug}`);
+  }
+
+  const hostname = parsedUrl.hostname.startsWith("www.")
+    ? parsedUrl.hostname
+    : `www.${parsedUrl.hostname}`;
+
+  if (hostname !== vendorHostname) {
+    throw new Error(
+      `Invalid hostname for ${vendor_slug}. Expected ${vendorHostname}, got ${hostname}`,
+    );
+  }
+
+  if (!vendorProductPathRegex.test(parsedUrl.pathname)) {
+    throw new Error(
+      `Invalid product path for ${vendor_slug}: ${parsedUrl.pathname}`,
+    );
+  }
+
+  return parsedUrl.protocol + "//" + hostname + parsedUrl.pathname;
 }
 
+/**
+ * Extracts a vendor-specific product ID from a validated product URL.
+ *
+ * @param url Product URL (ideally already validated/normalised).
+ * @param vendor_slug Vendor identifier (currently `woolworths` or `coles`).
+ * @returns The extracted product ID as a string.
+ * @throws {Error} If the vendor slug is unsupported or no product ID can be
+ * extracted from the URL for the selected vendor pattern.
+ */
 export function extractProductIdFromUrl(
   url: string,
   vendor_slug: string,
 ): string {
-  let productIdRegex;
+  let productIdRegex: RegExp;
   switch (vendor_slug) {
     case "woolworths":
       productIdRegex = woolworthsProductIdRegex;
@@ -57,13 +83,14 @@ export function extractProductIdFromUrl(
       productIdRegex = colesProductIdRegex;
       break;
     default:
-      throw new Error("Invalid vendor slug");
+      throw new Error(`Invalid vendor slug: ${vendor_slug}`);
   }
   const match = url.match(productIdRegex);
-  if (!match)
+  if (!match || !match[1]) {
     throw new Error(
-      `Could not extract product ID from URL: ${url}, vendor: ${vendor_slug}`,
+      `Could not extract product ID for ${vendor_slug} from URL: ${url}`,
     );
+  }
   return match[1]; //return just the productId
 }
 export const colesProductPathRegex = /^\/product\/\S+\d{7}$/;

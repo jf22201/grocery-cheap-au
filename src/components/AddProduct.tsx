@@ -50,7 +50,9 @@ export default function AddProduct({
       "woolworths",
     );
     if (!parsedWoolworthsUrl) {
-      toast.error("The inputted url for Woolworths appears to be invalid");
+      toast.error("The inputted url for Woolworths appears to be invalid", {
+        position: "top-center",
+      });
       return;
     }
     let processedPriceAlert = 0;

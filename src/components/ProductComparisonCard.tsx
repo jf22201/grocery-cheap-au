@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import {
   Card,
   CardContent,
@@ -7,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 type Product = {
   price: number;
@@ -27,16 +30,46 @@ type ComparisonGroup = {
 type ProductComparisonsProps = {
   comparisons: ComparisonGroup[];
   isLoading: boolean;
+  onDeleteGroup?: (groupId: number) => void;
+  deletingGroupId?: number | null;
 };
 
 function formatPrice(price: number) {
   return `$${(price / 100).toFixed(2)}`;
 }
 
-export default function ProductComparisons({
+export default function ProductComparisonCard({
   comparisons,
   isLoading,
+  onDeleteGroup,
+  deletingGroupId,
 }: ProductComparisonsProps) {
+  const [confirmingGroupId, setConfirmingGroupId] = useState<number | null>(
+    null,
+  );
+
+  useEffect(() => {
+    //reset confirming group id after the deletion has been completed
+    if (deletingGroupId !== null) {
+      setConfirmingGroupId(null);
+    }
+  }, [deletingGroupId]);
+
+  const handleDeleteClick = (groupId: number) => {
+    if (deletingGroupId === groupId) {
+      //do nothing if there is something currently being deleted
+      return;
+    }
+
+    if (confirmingGroupId === groupId) {
+      //user has already clicked once, so we can proceed with deletion
+      onDeleteGroup?.(groupId);
+      return;
+    }
+    //set confirming group id to require confirmation on the next click
+    setConfirmingGroupId(groupId);
+  };
+
   if (isLoading) {
     return (
       <p className="text-sm text-muted-foreground">Loading comparisons...</p>
@@ -55,11 +88,27 @@ export default function ProductComparisons({
     <div className="flex flex-col w-1/2 gap-4 mx-auto">
       {comparisons.map((comparison) => (
         <Card key={comparison.groupId}>
-          <CardHeader>
-            <CardTitle>{comparison.name}</CardTitle>
-            <CardDescription>
-              Alert at {formatPrice(comparison.price_alert)}
-            </CardDescription>
+          <CardHeader className="flex flex-row justify-between">
+            <div className="card-title-alert-container flex flex-col gap-y-1">
+              <CardTitle>{comparison.name ?? "Unnamed Group"}</CardTitle>
+              <CardDescription>
+                Alert at {formatPrice(comparison.price_alert)}
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="w-fit"
+              onClick={() => handleDeleteClick(comparison.groupId)}
+              disabled={deletingGroupId === comparison.groupId}
+            >
+              {deletingGroupId === comparison.groupId
+                ? "Deleting..."
+                : confirmingGroupId === comparison.groupId
+                  ? "Click again to confirm"
+                  : "Delete"}
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
