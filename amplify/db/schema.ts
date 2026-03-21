@@ -60,7 +60,15 @@ export const pricesTable = currentSchema.table(
       .references(() => productsTable.id, { onDelete: "cascade" })
       .notNull(),
     date_recorded: date().notNull(),
-    price: integer(),
+    price: integer().notNull(),
   },
   (table) => [primaryKey({ columns: [table.product_id, table.date_recorded] })],
 );
+
+export const latestPricesTable = currentSchema.table("latest_prices", {
+  product_id: integer()
+    .references(() => productsTable.id, { onDelete: "cascade" })
+    .primaryKey(),
+  price: integer().notNull(),
+  date_recorded: date().notNull().defaultNow(),
+});

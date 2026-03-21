@@ -10,6 +10,7 @@ import {
   productsTable,
   pricesTable,
   vendorsTable,
+  latestPricesTable,
 } from "amplify/db/schema";
 import { sql, eq, and } from "drizzle-orm";
 import { getCognitoId, getUserId } from "amplify/api/lib/auth";
