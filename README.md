@@ -1,3 +1,17 @@
+## Design Decisions
+
+### Scraping Strategy
+
+New product additions use the Zyte API for reliable, fast scraping to give the user quick feedback.
+Nightly price updates use a self-hosted headless browser container to minimise cost at scale.
+This splits the two use cases by priority — latency for user-initiated actions, cost efficiency for background jobs.
+
+### REST vs WebSockets
+
+The API uses REST for the MVP since the worst case is sequentially scraping 2 products via Zyte, averaging under 10 seconds — acceptable for a polling or await-on-response approach.
+WebSockets would add complexity without meaningful benefit at this scale.
+If the product comparison limit increases or scraping time grows, parallelisation via `Promise.all()` or a switch to WebSockets are both viable next steps.
+
 ## Development Requirements
 
 ### Node.js v22.22.0
@@ -28,11 +42,13 @@ npm -v # Should print "10.9.4".
 Grab AWS CLI tools if not installed on your development machine: [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
 ### Database
+
 This project uses drizzle ORM for database migrations, make sure to install drizzle-kit for database migrations.
 
 ```bash
 npm i -D drizzle-kit
 ```
+
 For more information regarding database migrations check [here](https://orm.drizzle.team/docs/migrations)
 
 ## Getting Started
@@ -54,6 +70,7 @@ Then bootstrap the sandbox environment on AWS for the backend:
 ```bash
 npx ampx sandbox
 ```
+
 or to pass in your .env file to amplify sandbox:
 
 ```bash
@@ -86,4 +103,4 @@ Check to see if GCM (Google cloud messaging is enabled on your browser)
 
 ### Not able to access env values in Amplify sandbox
 
-Make sure to add any .env values to be used in the sandbox by setting secrets. Check [here](https://docs.amplify.aws/react/deploy-and-host/fullstack-branching/secrets-and-vars/) for more info: 
+Make sure to add any .env values to be used in the sandbox by setting secrets. Check [here](https://docs.amplify.aws/react/deploy-and-host/fullstack-branching/secrets-and-vars/) for more info:

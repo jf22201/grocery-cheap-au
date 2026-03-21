@@ -29,6 +29,7 @@ export const vendorsTable = currentSchema.table("vendors", {
 
 export const comparisonGroupsTable = currentSchema.table("comparison_groups", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar({ length: 255 }),
   user_id: integer().references(() => usersTable.id, { onDelete: "cascade" }),
   price_alert: integer().default(0), //using integer as we are storing price in cents.
 });
@@ -53,6 +54,7 @@ export const productsTable = currentSchema.table("products", {
     })
     .notNull(),
   url: text().notNull(),
+  vendor_product_id: text(),
 });
 
 export const pricesTable = currentSchema.table(
