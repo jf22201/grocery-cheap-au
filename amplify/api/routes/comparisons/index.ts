@@ -9,7 +9,6 @@ import {
   comparisonProductsTable,
   productsTable,
   pricesTable,
-  VENDOR_IDS,
   vendorsTable,
 } from "amplify/db/schema";
 import { sql, eq } from "drizzle-orm";
@@ -187,6 +186,17 @@ comparisons.post("/", async (c) => {
         products: [],
       };
       logger.info("Created comparison group", { userId, groupId, name });
+      const vendorInfo = await tx
+        .select({ id: vendorsTable.id, vendorSlug: vendorsTable.vendor_slug })
+        .from(vendorsTable);
+      //create mapping for vendor_slug to vendor_id
+      const vendorIdMap = vendorInfo.reduce(
+        (acc, vendor) => {
+          acc[vendor.vendorSlug] = vendor.id;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
       for (const product of products) {
         const { vendor_slug, url } = product;
         //check if this url already exists on the productsTable
@@ -212,7 +222,7 @@ comparisons.post("/", async (c) => {
             .insert(productsTable)
             .values({
               product_name: name,
-              vendor_id: VENDOR_IDS[vendor_slug],
+              vendor_id: vendorIdMap[vendor_slug],
               url,
               vendor_product_id: vendorProductId,
             })

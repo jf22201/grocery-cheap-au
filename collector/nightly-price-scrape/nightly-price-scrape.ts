@@ -4,7 +4,6 @@ import {
   pricesTable,
   productsTable,
   vendorsTable,
-  VENDOR_IDS,
 } from "../../amplify/db/schema"; //NOTE : relative paths used here for docker compatibility.
 import { ProxyInfo } from "../scrapers/Scraper";
 import { colesInterceptorConfig, colesSiteConfig } from "../scrapers/coles";
@@ -14,9 +13,12 @@ import {
 } from "../scrapers/woolworths";
 import { parseColesPage } from "../parsers/coles";
 import { parseWoolworthsPage } from "../parsers/woolworths";
+import { eq } from "drizzle-orm";
 async function main() {
-  const vendorIdSlugMap: Record<string, Number> = VENDOR_IDS;
-  const allProducts = await db.select().from(productsTable);
+  const allProducts = await db
+    .select()
+    .from(productsTable)
+    .innerJoin(vendorsTable, eq(productsTable.vendor_id, vendorsTable.id));
   //get latest proxy info
   const proxyRes = await fetch(process.env.PROXY_PROVIDER_ENDPOINT as string, {
     headers: {
@@ -33,26 +35,32 @@ async function main() {
   const scraper = new Scraper(proxyList);
   await scraper.initBrowser();
   for (const product of allProducts) {
-    const url = product.url;
-    const vendor_id = product.vendor_id;
-    const product_id = product.id;
+    const url = product.products.url;
+    const vendor_slug = product.vendors.vendor_slug;
+    const product_id = product.products.id;
+    console.log(
+      `Scraping product_id: ${product_id}, url: ${url}, vendor: ${vendor_slug}`,
+    );
     //select config based on vendor
     let siteConfig;
     let interceptorConfig;
     let parserFn;
-    switch (vendor_id) {
-      case vendorIdSlugMap["coles"]:
+    switch (vendor_slug) {
+      case "coles":
         siteConfig = colesSiteConfig;
         interceptorConfig = colesInterceptorConfig;
         parserFn = parseColesPage;
         break;
-      case vendorIdSlugMap["woolworths"]:
+      case "woolworths":
         siteConfig = woolworthsSiteConfig;
         interceptorConfig = woolworthsInterceptorConfig;
         parserFn = parseWoolworthsPage;
         break;
       default:
         //TODO: figure out a better default value here or refactor Scrape.ScapePage() to allow undefined
+        console.warn(
+          `Not supported vendor for vendor_slug: ${vendor_slug}, defaulting to coles config`,
+        );
         siteConfig = colesSiteConfig;
         interceptorConfig = colesInterceptorConfig;
         parserFn = parseColesPage;
@@ -79,10 +87,14 @@ async function main() {
           target: [pricesTable.product_id, pricesTable.date_recorded],
           set: { price: price },
         });
+      console.log(
+        `Successfully recorded price for product_id: ${product_id}, price: ${price}, date: ${new Date().toISOString().split("T")[0]}`,
+      );
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
   }
-  await scraper.closeBrowser();
+  console.log("Finished scraping all products, closing scraper");
+  process.exit(0);
 }
 main();

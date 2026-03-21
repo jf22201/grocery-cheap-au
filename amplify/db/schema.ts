@@ -7,11 +7,7 @@ import {
   primaryKey,
   date,
 } from "drizzle-orm/pg-core";
-//NOTE: vendor ids hardcoded here due to rarely changing on DB, make sure to if changes arise.
-export const VENDOR_IDS: Record<string, number> = {
-  woolworths: 1,
-  coles: 2,
-};
+
 const currentSchema = process.env.DB_SCHEMA
   ? pgSchema(process.env.DB_SCHEMA)
   : pgSchema("public"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
