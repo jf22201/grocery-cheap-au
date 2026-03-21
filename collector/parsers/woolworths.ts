@@ -10,6 +10,6 @@ export function parseWoolworthsPage(html: string): {
   const price = Math.trunc(
     parseFloat(outputJson?.props?.pageProps?.pdDetails?.Product?.Price) * 100,
   );
-  console.log(name, price);
+  console.log(`Parsed Woolworths product: ${name}, Price: ${price}`);
   return { name, price };
 }

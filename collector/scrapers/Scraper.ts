@@ -67,6 +67,7 @@ export interface ScrapingErrorDetails {
   html: string;
   url: string;
   proxy?: string;
+  siteConfig: string;
   error: {
     //Serialized error
     message?: string;
@@ -96,6 +97,8 @@ export default class Scraper {
   private proxies: ProxyInfo[] | [];
   private proxyIdx: number | 0; //selector for which proxy is currently in use
   private proxyInUse: boolean;
+  private pagesScaped: number = 0; //counter for number of pages scraped, used for preemptive proxy switching
+  private maxPagesPerProxy: number = 30; //max number of pages to scrape before switching proxy to reduce chance of getting blocked
 
   constructor(proxies?: ProxyInfo[]) {
     if (proxies) {
@@ -192,9 +195,8 @@ export default class Scraper {
       await page.goto(url, {
         waitUntil: siteConfig?.waitUntil || "networkidle2",
       });
-
+      initialHtml = await page.content(); //store page after networkidle2 but before waiting for selector
       await page.waitForSelector(siteConfig.selector, {
-        visible: true,
         timeout: siteConfig?.timeout || 15000,
       });
       html = await page.content();
@@ -203,6 +205,7 @@ export default class Scraper {
         throw new ScrapingError({
           html: initialHtml,
           url,
+          siteConfig: siteConfig.name,
           ...(this.proxyInUse && {
             proxy: `${this.currentProxy.host}:${this.currentProxy.port}`,
           }), //Only add proxy info if in use.
@@ -234,9 +237,17 @@ export default class Scraper {
   ): Promise<string> {
     let currentAttempt = 0;
     let proxiesUsed = 1;
+    if (
+      this.pagesScaped % this.maxPagesPerProxy === 0 &&
+      this.pagesScaped !== 0
+    ) {
+      console.log(`Switching proxy after scraping ${this.pagesScaped} pages`);
+      await this.changeProxy();
+    }
     while (true) {
       try {
         const html = await this.scrapePage(url, siteConfig, interceptorConfig);
+        this.pagesScaped++;
         return html;
       } catch (err) {
         if (err instanceof ScrapingError) {

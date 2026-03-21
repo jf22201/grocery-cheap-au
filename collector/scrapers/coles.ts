@@ -2,7 +2,7 @@ import { SiteConfig, InterceptorConfig } from "./Scraper";
 
 export const colesSiteConfig: SiteConfig = {
   name: "Coles",
-  selector: ".product__title",
+  selector: 'script[type="application/ld+json"]',
   waitUntil: "domcontentloaded",
   timeout: 5000,
 };
