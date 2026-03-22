@@ -164,6 +164,7 @@ const scraperTaskRole = Role.fromRoleName(
   scraperStack,
   "ScraperTaskRole",
   "grocery-tracker-nightly-scraper-role",
+  { mutable: false },
 );
 
 const scraperTaskDef = new FargateTaskDefinition(
