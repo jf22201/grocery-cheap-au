@@ -43,13 +43,35 @@ Grab AWS CLI tools if not installed on your development machine: [AWS CLI](https
 
 ### Database
 
-This project uses drizzle ORM for database migrations, make sure to install drizzle-kit for database migrations.
+This project uses a single RDS PostgreSQL instance with two schemas for environment isolation:
+- `dev_josh` (or your own name) — local development
+- `main` — production
+
+Set `DB_SCHEMA` in your `.env` to your dev schema name and `DATABASE_URL` to the shared RDS connection string.
+
+#### Dev schema changes
+
+Use `drizzle-kit push` to sync your schema directly to your dev schema without generating migration files:
 
 ```bash
-npm i -D drizzle-kit
+npx drizzle-kit push
 ```
 
-For more information regarding database migrations check [here](https://orm.drizzle.team/docs/migrations)
+#### Generating migrations for prod
+
+Always generate migrations with `DB_SCHEMA=main` so the SQL has no schema prefix issues:
+
+```bash
+DB_SCHEMA=main npx drizzle-kit generate
+```
+
+Review the generated file in `drizzle/`, then commit it alongside your code changes. The GitHub Action will apply it to prod on merge to main.
+
+To apply manually:
+
+```bash
+DB_SCHEMA=main DATABASE_URL=<prod-url> npx drizzle-kit migrate
+```
 
 ## Getting Started
 
