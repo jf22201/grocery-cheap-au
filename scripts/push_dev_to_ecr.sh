@@ -15,12 +15,12 @@ ECR_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME"
 
 cd "$(dirname "$0")/.." # build from project root
 
-docker build --platform linux/amd64 -t $IMAGE_NAME:latest -f collector/nightly-price-scrape/Dockerfile .
+docker build --platform linux/amd64 -t $IMAGE_NAME:dev -f collector/nightly-price-scrape/Dockerfile .
 
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
 
-docker tag $IMAGE_NAME:latest $ECR_URI:latest
+docker tag $IMAGE_NAME:dev $ECR_URI:dev
 
-docker push $ECR_URI:latest
+docker push $ECR_URI:dev
 
-echo "Pushed $ECR_URI:latest"
+echo "Pushed $ECR_URI:dev"
