@@ -1,0 +1,37 @@
+name: Deploy Scraper
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'collector/**'
+      - 'amplify/db/**'
+
+jobs:
+  deploy:
+    name: Build and push scraper image to ECR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ap-southeast-2 | \
+          docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
+
+      - name: Build and push
+        run: |
+          ECR_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/grocery-tracker-nightly-scrape"
+          docker build --platform linux/amd64 -t nightly-price-scrape:latest -f collector/nightly-price-scrape/Dockerfile .
+          docker tag nightly-price-scrape:latest $ECR_URI:latest
+          docker push $ECR_URI:latest
+          echo "Pushed $ECR_URI:latest"
