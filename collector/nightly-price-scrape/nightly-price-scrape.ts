@@ -137,6 +137,7 @@ async function main() {
   console.log("Finished scraping all products, closing scraper");
   //send eventbridge event with changed product ids for notification handler to process
   if (changedProductIds.length > 0) {
+    console.log(`Price changes detected for ${changedProductIds.length} product(s), publishing ScrapeComplete event to EventBridge`);
     const eventBridge = new EventBridgeClient({ region: "ap-southeast-2" });
 
     await eventBridge.send(
@@ -151,6 +152,9 @@ async function main() {
         ],
       }),
     );
+    console.log("ScrapeComplete event published successfully");
+  } else {
+    console.log("No price changes detected, skipping EventBridge event");
   }
   process.exit(0);
 }
