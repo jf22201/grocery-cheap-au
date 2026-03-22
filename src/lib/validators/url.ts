@@ -95,8 +95,8 @@ export function extractProductIdFromUrl(
 }
 export const colesProductPathRegex = /^\/product\/\S+\d{7}$/;
 export const woolworthsProductPathRegex =
-  /^\/shop\/productdetails\/\d{6}\/\S+$/;
+  /^\/shop\/productdetails\/\d+\/\S+$/;
 export const woolworthsHostname = "www.woolworths.com.au";
 export const colesHostname = "www.coles.com.au";
 const colesProductIdRegex = /(\d{7})$/;
-const woolworthsProductIdRegex = /productdetails\/(\d{6})/;
+const woolworthsProductIdRegex = /productdetails\/(\d+)/;
