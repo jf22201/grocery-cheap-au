@@ -1,6 +1,7 @@
 import { defineBackend } from "@aws-amplify/backend";
 import { auth } from "./auth/resource";
 import { api } from "./api/resource";
+import { notificationHandler } from "./notificationHandler/resource";
 import { Stack } from "aws-cdk-lib";
 import {
   CorsHttpMethod,
@@ -12,7 +13,9 @@ import {
   HttpUserPoolAuthorizer,
 } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
-// import { Policy, PolicyStatement } from "aws-cdk-lib/aws-iam";
+import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
+import { EventBus, Rule } from "aws-cdk-lib/aws-events";
+import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 // import { data } from './data/resource';
 
 /**
@@ -21,6 +24,7 @@ import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations
 const backend = defineBackend({
   auth,
   api,
+  notificationHandler,
 });
 
 const apiStack = backend.createStack("api-stack");
@@ -85,3 +89,27 @@ backend.addOutput({
     },
   },
 });
+
+//event stack for handling price change notifications
+const eventStack = backend.createStack("event-stack");
+
+const scraperBus = new EventBus(eventStack, "ScraperBus", {
+  eventBusName: "grocery-tracker-scraper-bus",
+});
+const notificationLambda = backend.notificationHandler.resources.lambda;
+
+new Rule(eventStack, "ScrapeCompleteRule", {
+  eventBus: scraperBus,
+  eventPattern: {
+    source: ["grocery-tracker.scraper"],
+    detailType: ["ScrapeComplete"],
+  },
+  targets: [new LambdaFunction(notificationLambda)],
+});
+
+notificationLambda.addToRolePolicy(
+  new PolicyStatement({
+    actions: ["ses:SendEmail"],
+    resources: ["*"],
+  }),
+);

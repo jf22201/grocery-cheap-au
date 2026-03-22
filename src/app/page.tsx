@@ -7,9 +7,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { apiDelete, apiGet } from "@/lib/api";
+import { apiDelete, apiGet, apiPut } from "@/lib/api";
 import ProductComparisons from "@/components/ProductComparisonCard";
 import { toast } from "sonner";
+import LoadingPage from "@/components/LoadingPage";
+import EditComparisonGroup from "@/components/EditComparisonGroup";
 type Product = {
   price: number;
   product_name: string;
@@ -26,11 +28,15 @@ export type ComparisonGroup = {
 };
 export default function Page() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [comparisons, setComparisons] = useState<ComparisonGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingGroupId, setDeletingGroupId] = useState<number | null>(null);
+  const [editingGroup, setEditingGroup] = useState<ComparisonGroup | null>(
+    null,
+  );
 
   const logout = async () => {
     await signOut();
@@ -53,8 +59,10 @@ export default function Page() {
     }
   };
   useEffect(() => {
-    void loadData();
-  }, []);
+    if (!authLoading && user) {
+      loadData();
+    }
+  }, [authLoading]);
 
   const deleteComparisonGroup = async (groupId: number) => {
     try {
@@ -79,6 +87,34 @@ export default function Page() {
     setComparisons((prev) => [...prev, newGroup]);
   };
 
+  const handleEditGroup = (groupId: number) => {
+    const group = comparisons.find((item) => item.groupId === groupId) ?? null;
+    setEditingGroup(group);
+    setShowEditModal(Boolean(group));
+  };
+
+  const saveEditedGroup = (updated: {
+    groupId: number;
+    name: string;
+    price_alert: number;
+  }) => {
+    setComparisons((prev) =>
+      prev.map((group) =>
+        group.groupId === updated.groupId
+          ? {
+              ...group,
+              name: updated.name,
+              price_alert: updated.price_alert,
+            }
+          : group,
+      ),
+    );
+    setEditingGroup(null);
+  };
+
+  if (authLoading || !user) {
+    return <LoadingPage message="Loading..." />;
+  }
   return (
     <div className="min-h-screen flex flex-col">
       <div className="w-full bg-black px-6 py-3 flex justify-between items-center gap-3">
@@ -106,6 +142,7 @@ export default function Page() {
           <ProductComparisons
             comparisons={comparisons}
             isLoading={isLoading}
+            onEditGroup={handleEditGroup}
             onDeleteGroup={deleteComparisonGroup}
             deletingGroupId={deletingGroupId}
           />
@@ -115,6 +152,12 @@ export default function Page() {
         open={showModal}
         onOpenChange={setShowModal}
         onAddGroup={addComparisonGroup}
+      />
+      <EditComparisonGroup
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        group={editingGroup}
+        onSaveGroup={saveEditedGroup}
       />
     </div>
   );

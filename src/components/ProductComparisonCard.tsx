@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { set } from "react-hook-form";
 
 type Product = {
   price: number;
@@ -31,6 +30,7 @@ export type ComparisonGroup = {
 type ProductComparisonsProps = {
   comparisons: ComparisonGroup[];
   isLoading: boolean;
+  onEditGroup?: (groupId: number) => void;
   onDeleteGroup?: (groupId: number) => void;
   deletingGroupId: number | null;
 };
@@ -42,6 +42,7 @@ function formatPrice(price: number) {
 export default function ProductComparisonCard({
   comparisons,
   isLoading,
+  onEditGroup,
   onDeleteGroup,
   deletingGroupId,
 }: ProductComparisonsProps) {
@@ -91,26 +92,40 @@ export default function ProductComparisonCard({
       {comparisons.map((comparison) => (
         <Card key={comparison.groupId}>
           <CardHeader className="flex flex-row justify-between">
-            <div className="card-title-alert-container flex flex-col gap-y-1">
+            <div className="card-title-alert-container flex flex-col gap-y-4">
               <CardTitle>{comparison.name ?? "Unnamed Group"}</CardTitle>
               <CardDescription>
-                Alert at {formatPrice(comparison.price_alert)}
+                {comparison.price_alert === 0
+                  ? "No price alert"
+                  : `Alert at ${formatPrice(comparison.price_alert)}`}
               </CardDescription>
             </div>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              className="w-fit"
-              onClick={() => handleDeleteClick(comparison.groupId)}
-              disabled={deletingGroupId === comparison.groupId}
-            >
-              {deletingGroupId === comparison.groupId
-                ? "Deleting..."
-                : confirmingGroupId === comparison.groupId
-                  ? "Click again to confirm"
-                  : "Delete"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => onEditGroup?.(comparison.groupId)}
+                disabled={deletingGroupId === comparison.groupId}
+              >
+                Edit
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="w-fit"
+                onClick={() => handleDeleteClick(comparison.groupId)}
+                disabled={deletingGroupId === comparison.groupId}
+              >
+                {deletingGroupId === comparison.groupId
+                  ? "Deleting..."
+                  : confirmingGroupId === comparison.groupId
+                    ? "Click again to confirm"
+                    : "Delete"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

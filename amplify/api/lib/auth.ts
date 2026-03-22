@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
  * @param c : hono request context
  * @returns Cognito user ID (sub claim)
  */
-export function getCognitoId(c: Context) {
+export function getCognitoId(c: Context): string {
   // requestContext interface defined in hono is out of date and doesn't not have the jwt field that is required, can fix this when upstream is fixed or define own interface.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const context = c.env.event.requestContext as any;
