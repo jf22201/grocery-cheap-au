@@ -4,6 +4,7 @@ import {
   pricesTable,
   productsTable,
   vendorsTable,
+  latestPricesTable,
 } from "../../amplify/db/schema"; //NOTE : relative paths used here for docker compatibility.
 import { ProxyInfo } from "../scrapers/Scraper";
 import { colesInterceptorConfig, colesSiteConfig } from "../scrapers/coles";
@@ -14,11 +15,21 @@ import {
 import { parseColesPage } from "../parsers/coles";
 import { parseWoolworthsPage } from "../parsers/woolworths";
 import { eq } from "drizzle-orm";
+import {
+  EventBridgeClient,
+  PutEventsCommand,
+} from "@aws-sdk/client-eventbridge";
 async function main() {
   const allProducts = await db
     .select()
     .from(productsTable)
     .innerJoin(vendorsTable, eq(productsTable.vendor_id, vendorsTable.id));
+  //create an in memory map of the latest prices for each product
+  const latestPrices = await db.select().from(latestPricesTable);
+  const latestPricesMap = new Map<number, number>();
+  for (const priceRecord of latestPrices) {
+    latestPricesMap.set(priceRecord.product_id, priceRecord.price);
+  }
   //get latest proxy info
   const proxyRes = await fetch(process.env.PROXY_PROVIDER_ENDPOINT as string, {
     headers: {
@@ -32,6 +43,7 @@ async function main() {
     const { proxy_address, port, username, password } = proxy;
     proxyList.push({ host: proxy_address, port, username, password });
   }
+  let changedProductIds: number[] = [];
   const scraper = new Scraper(proxyList);
   await scraper.initBrowser();
   for (const product of allProducts) {
@@ -74,19 +86,47 @@ async function main() {
       );
 
       const { name, price } = parserFn(html);
-      //create new record in DB
-      await db
-        .insert(pricesTable)
-        .values({
-          product_id: product_id,
-          date_recorded: new Date().toISOString().split("T")[0], //record the current date (YYYY-MM-DD)
-          price: price,
-        })
-        .onConflictDoUpdate({
-          //If record already exists for the current day, update it
-          target: [pricesTable.product_id, pricesTable.date_recorded],
-          set: { price: price },
-        });
+      //check if price has changed since last scrape - if so we need to add to changedProductIds
+      const lastRecordedPrice = latestPricesMap.get(product_id);
+      if (!lastRecordedPrice || lastRecordedPrice !== price) {
+        console.log(
+          `Product_id: ${product_id} price has changed from ${lastRecordedPrice} to ${price}, adding to changedProductIds list`,
+        );
+        changedProductIds.push(product_id);
+      }
+
+      //create new price record in prices and latest prices table
+      await db.transaction(async (tx) => {
+        Promise.all([
+          await tx
+            .insert(pricesTable)
+            .values({
+              product_id: product_id,
+              date_recorded: new Date().toISOString().split("T")[0], //record the current date (YYYY-MM-DD)
+              price: price,
+            })
+            .onConflictDoUpdate({
+              //If record already exists for the current day, update it
+              target: [pricesTable.product_id, pricesTable.date_recorded],
+              set: { price: price },
+            }),
+          await tx
+            .insert(latestPricesTable)
+            .values({
+              product_id,
+              price,
+              date_recorded: new Date().toISOString().split("T")[0],
+            })
+            .onConflictDoUpdate({
+              target: latestPricesTable.product_id,
+              set: {
+                price,
+                date_recorded: new Date().toISOString().split("T")[0],
+              },
+            }),
+        ]);
+      });
+
       console.log(
         `Successfully recorded price for product_id: ${product_id}, price: ${price}, date: ${new Date().toISOString().split("T")[0]}`,
       );
@@ -95,6 +135,23 @@ async function main() {
     }
   }
   console.log("Finished scraping all products, closing scraper");
+  //send eventbridge event with changed product ids for notification handler to process
+  if (changedProductIds.length > 0) {
+    const eventBridge = new EventBridgeClient({ region: "ap-southeast-2" });
+
+    await eventBridge.send(
+      new PutEventsCommand({
+        Entries: [
+          {
+            EventBusName: process.env.EVENT_BUS_NAME,
+            Source: "grocery-tracker.scraper",
+            DetailType: "ScrapeComplete",
+            Detail: JSON.stringify({ changedProductIds }),
+          },
+        ],
+      }),
+    );
+  }
   process.exit(0);
 }
 main();

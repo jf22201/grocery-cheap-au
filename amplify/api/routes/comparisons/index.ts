@@ -393,9 +393,16 @@ comparisons.put("/", async (c) => {
     );
   }
   const { group_id, price_alert, name } = reqBody;
+  const currentPriceAlert = compGroup[0].comparison_groups.price_alert;
+  //always re-arm on price alert change
+  const priceAlertChanged = price_alert !== currentPriceAlert;
   await db
     .update(comparisonGroupsTable)
-    .set({ price_alert, name })
+    .set({
+      price_alert,
+      name,
+      ...(priceAlertChanged ? { alert_armed: true } : {}),
+    })
     .where(eq(comparisonGroupsTable.id, group_id));
   return c.json({ message: "ok" }, 200);
 });

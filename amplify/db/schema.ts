@@ -6,11 +6,12 @@ import {
   pgSchema,
   primaryKey,
   date,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 const currentSchema = process.env.DB_SCHEMA
   ? pgSchema(process.env.DB_SCHEMA)
-  : pgSchema("public"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
+  : pgSchema("main"); //dynamically choose between dev schema if defined or fallback to prod schema (main)
 export const usersTable = currentSchema.table("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(), //This is the DB internal primary key for each user
   cognito_user_id: varchar({ length: 255 }).notNull(), //This is the userid from cognito
@@ -28,6 +29,7 @@ export const comparisonGroupsTable = currentSchema.table("comparison_groups", {
   name: varchar({ length: 255 }),
   user_id: integer().references(() => usersTable.id, { onDelete: "cascade" }),
   price_alert: integer().default(0), //using integer as we are storing price in cents.
+  alert_armed: boolean().notNull().default(true),
 });
 
 export const comparisonProductsTable = currentSchema.table(

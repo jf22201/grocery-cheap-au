@@ -15,7 +15,7 @@ import {
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
 import { EventBus, Rule } from "aws-cdk-lib/aws-events";
-// import { Policy, PolicyStatement } from "aws-cdk-lib/aws-iam";
+import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 // import { data } from './data/resource';
 
 /**
@@ -106,3 +106,10 @@ new Rule(eventStack, "ScrapeCompleteRule", {
   },
   targets: [new LambdaFunction(notificationLambda)],
 });
+
+notificationLambda.addToRolePolicy(
+  new PolicyStatement({
+    actions: ["ses:SendEmail"],
+    resources: ["*"],
+  }),
+);
