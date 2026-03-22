@@ -26,11 +26,11 @@ jobs:
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region ap-southeast-2 | \
-          docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
+          docker login --username AWS --password-stdin ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com
 
       - name: Build and push
         run: |
-          ECR_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/grocery-tracker-nightly-scrape"
+          ECR_URI="${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/grocery-tracker-nightly-scrape"
           docker build --platform linux/amd64 -t nightly-price-scrape:latest -f collector/nightly-price-scrape/Dockerfile .
           docker tag nightly-price-scrape:latest $ECR_URI:latest
           docker push $ECR_URI:latest
