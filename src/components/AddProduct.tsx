@@ -41,21 +41,27 @@ export default function AddProduct({
     e.preventDefault();
     setIsLoading(true);
     //Url checks
-    const parsedColesUrl = validateAndNormaliseUrl(colesUrl, "coles");
-    if (!parsedColesUrl) {
+    let parsedColesUrl: string;
+    let parsedWoolworthsUrl: string;
+    try {
+      parsedColesUrl = validateAndNormaliseUrl(colesUrl, "coles");
+    } catch {
       toast.error("The inputted url for Coles appears to be invalid", {
         position: "top-center",
       });
+      setIsLoading(false);
       return;
     }
-    const parsedWoolworthsUrl = validateAndNormaliseUrl(
-      woolworthsUrl,
-      "woolworths",
-    );
-    if (!parsedWoolworthsUrl) {
+    try {
+      parsedWoolworthsUrl = validateAndNormaliseUrl(
+        woolworthsUrl,
+        "woolworths",
+      );
+    } catch {
       toast.error("The inputted url for Woolworths appears to be invalid", {
         position: "top-center",
       });
+      setIsLoading(false);
       return;
     }
     let processedPriceAlert = 0;
@@ -76,7 +82,6 @@ export default function AddProduct({
         },
       ],
     };
-    console.log(reqBody);
     try {
       const newComparison = await apiPost("comparisons", reqBody);
       onAddGroup(newComparison as ComparisonGroup);
