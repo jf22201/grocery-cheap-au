@@ -1,65 +1,164 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import AddProduct from "@/components/AddProduct";
+import useAuth from "../../hooks/useAuth";
+import { signOut } from "aws-amplify/auth";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { apiDelete, apiGet, apiPut } from "@/lib/api";
+import ProductComparisons from "@/components/ProductComparisonCard";
+import { toast } from "sonner";
+import LoadingPage from "@/components/LoadingPage";
+import EditComparisonGroup from "@/components/EditComparisonGroup";
+type Product = {
+  price: number;
+  product_name: string;
+  product_id: number;
+  vendor_slug: string;
+  group: number;
+  url: string;
+};
+export type ComparisonGroup = {
+  groupId: number;
+  name: string;
+  price_alert: number;
+  products: Product[];
+};
+export default function Page() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [comparisons, setComparisons] = useState<ComparisonGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [deletingGroupId, setDeletingGroupId] = useState<number | null>(null);
+  const [editingGroup, setEditingGroup] = useState<ComparisonGroup | null>(
+    null,
+  );
+
+  const logout = async () => {
+    await signOut();
+    router.push("/login");
+  };
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await apiGet("/comparisons");
+      setComparisons(
+        Array.isArray(response) ? (response as ComparisonGroup[]) : [],
+      );
+    } catch (error) {
+      toast.error("Error fetching comparisons. Please try again later.", {
+        position: "top-center",
+      });
+      console.error("Error fetching comparisons:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadData();
+    }
+  }, [authLoading]);
+
+  const deleteComparisonGroup = async (groupId: number) => {
+    try {
+      setDeletingGroupId(groupId);
+      await apiDelete("/comparisons", { group_id: groupId });
+      toast.success("Comparison group deleted successfully", {
+        position: "top-center",
+      });
+      setComparisons((prev) =>
+        prev.filter((group) => group.groupId !== groupId),
+      );
+    } catch (error) {
+      toast.error("Error deleting. Please try again later.", {
+        position: "top-center",
+      });
+      console.error("Error deleting comparison group:", error);
+    } finally {
+      setDeletingGroupId(null);
+    }
+  };
+  const addComparisonGroup = (newGroup: ComparisonGroup) => {
+    setComparisons((prev) => [...prev, newGroup]);
+  };
+
+  const handleEditGroup = (groupId: number) => {
+    const group = comparisons.find((item) => item.groupId === groupId) ?? null;
+    setEditingGroup(group);
+    setShowEditModal(Boolean(group));
+  };
+
+  const saveEditedGroup = (updated: {
+    groupId: number;
+    name: string;
+    price_alert: number;
+  }) => {
+    setComparisons((prev) =>
+      prev.map((group) =>
+        group.groupId === updated.groupId
+          ? {
+              ...group,
+              name: updated.name,
+              price_alert: updated.price_alert,
+            }
+          : group,
+      ),
+    );
+    setEditingGroup(null);
+  };
+
+  if (authLoading || !user) {
+    return <LoadingPage message="Loading..." />;
+  }
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen flex flex-col">
+      <div className="w-full bg-black px-6 py-3 flex justify-between items-center gap-3">
+        <Button
+          variant="secondary"
+          className="bg-white text-black hover:bg-gray-200"
+          size="icon"
+          onClick={() => setShowModal(true)}
+        >
+          <Plus className="h-5 w-5" />
+        </Button>
+
+        <Button
+          variant="secondary"
+          className="bg-white text-black hover:bg-gray-200"
+          onClick={logout}
+        >
+          Sign Out
+        </Button>
+      </div>
+
+      <div className="p-6">
+        <h1 className="text-2xl font-semibold">Home</h1>
+        <div className="mt-4">
+          <ProductComparisons
+            comparisons={comparisons}
+            isLoading={isLoading}
+            onEditGroup={handleEditGroup}
+            onDeleteGroup={deleteComparisonGroup}
+            deletingGroupId={deletingGroupId}
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+      <AddProduct
+        open={showModal}
+        onOpenChange={setShowModal}
+        onAddGroup={addComparisonGroup}
+      />
+      <EditComparisonGroup
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        group={editingGroup}
+        onSaveGroup={saveEditedGroup}
+      />
     </div>
   );
 }

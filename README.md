@@ -1,8 +1,22 @@
-## Requirements
+## Design Decisions
 
-### Node.js v22.22.0+
+### Scraping Strategy
 
-If not currently installed, head to https://nodejs.org/en/download
+New product additions use the Zyte API for reliable, fast scraping to give the user quick feedback.
+Nightly price updates use a self-hosted headless browser container to minimise cost at scale.
+This splits the two use cases by priority — latency for user-initiated actions, cost efficiency for background jobs.
+
+### REST vs WebSockets
+
+The API uses REST for the MVP since the worst case is sequentially scraping 2 products via Zyte, averaging under 10 seconds — acceptable for a polling or await-on-response approach.
+WebSockets would add complexity without meaningful benefit at this scale.
+If the product comparison limit increases or scraping time grows, parallelisation via `Promise.all()` or a switch to WebSockets are both viable next steps.
+
+## Development Requirements
+
+### Node.js v22.22.0
+
+If not currently installed, head [here](https://nodejs.org/en/download)
 
 or use install script if on Linux
 
@@ -23,7 +37,41 @@ node -v # Should print "v22.22.0".
 npm -v # Should print "10.9.4".
 ```
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+### AWS CLI
+
+Grab AWS CLI tools if not installed on your development machine: [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+
+### Database
+
+This project uses a single RDS PostgreSQL instance with two schemas for environment isolation:
+- `dev_josh` (or your own name) — local development
+- `main` — production
+
+Set `DB_SCHEMA` in your `.env` to your dev schema name and `DATABASE_URL` to the shared RDS connection string.
+
+#### Dev schema changes
+
+Use `drizzle-kit push` to sync your schema directly to your dev schema without generating migration files:
+
+```bash
+npx drizzle-kit push
+```
+
+#### Generating migrations for prod
+
+Always generate migrations with `DB_SCHEMA=main` so the SQL has no schema prefix issues:
+
+```bash
+DB_SCHEMA=main npx drizzle-kit generate
+```
+
+Review the generated file in `drizzle/`, then commit it alongside your code changes. The GitHub Action will apply it to prod on merge to main.
+
+To apply manually:
+
+```bash
+DB_SCHEMA=main DATABASE_URL=<prod-url> npx drizzle-kit migrate
+```
 
 ## Getting Started
 
@@ -33,7 +81,25 @@ First, make sure you are at repo root then install npm requirements
 npm install
 ```
 
-Then, run the development server
+The backend is run on AWS Amplify, login to the AWS CLI with your credentials.
+
+```bash
+aws login
+```
+
+Then bootstrap the sandbox environment on AWS for the backend:
+
+```bash
+npx ampx sandbox
+```
+
+or to pass in your .env file to amplify sandbox:
+
+```bash
+npx dotenvx run --env-file=.env.local -- ampx sandbox
+```
+
+You should now see amplify_outputs.json in the project directory, you can now start the development server:
 
 ```bash
 npm run dev
@@ -45,23 +111,18 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [https://localhost:3000](https://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Troubleshooting
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### SSL issues - WSL
 
-## Learn More
+This app requires https, by default npm run dev should launch the server using https. If running Next.js on WSL but using a Windows host web browser. You may need to move your CA certificates in ~/$USER/.local/share/mkcert/rootCA.pem over to the Windows host and add it as a trusted certificate to your browser.
 
-To learn more about Next.js, take a look at the following resources:
+### Push service errors
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Check to see if GCM (Google cloud messaging is enabled on your browser)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Not able to access env values in Amplify sandbox
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Make sure to add any .env values to be used in the sandbox by setting secrets. Check [here](https://docs.amplify.aws/react/deploy-and-host/fullstack-branching/secrets-and-vars/) for more info:

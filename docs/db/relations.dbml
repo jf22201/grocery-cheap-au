@@ -1,0 +1,46 @@
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table users {
+  id integer [primary key]
+  email varchar [not null]
+  password_hash varchar
+}
+
+Table user_identity {
+  id integer [primary key] 
+  provider_user_id varchar  [not null]
+  user_id integer [not null]
+  provider varchar  [not null]
+}
+
+Table vendors {
+  id integer [primary key]
+  vendor_name varchar [not null]
+}
+
+Table products {
+  id integer [primary key]
+  product_name varchar [not null]
+  price float [not null]
+  vendor_id integer [not null]
+  url varchar [unique]
+}
+
+Table comparison_products {
+  id integer [primary key]
+  product_id varchar [not null]
+  group integer [not null]
+}
+
+Table comparison_group {
+  id integer [primary key]
+  user_id integer [not null]
+  price_alert float
+}
+
+Ref user_id: users.id < user_identity.user_id
+Ref product_to_vendor: products.vendor_id > vendors.id
+Ref product_to_comparison: products.id < comparison_products.product_id
+Ref user_id_to_comparison: users.id < comparison_group.user_id
+Ref group_to_comparison: comparison_group.id < comparison_products.group
