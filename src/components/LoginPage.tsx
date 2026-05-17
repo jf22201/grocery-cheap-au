@@ -4,7 +4,6 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -37,17 +36,17 @@ export function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showVerification, setShowVerification] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const verificationEmail = useRef("");
-  const sleep = (ms: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms));
   const toggleIsSignUp = () => {
     setIsSignUp((prev) => !prev);
   };
   const router = useRouter();
-  async function handleLogin(e: React.SubmitEvent<HTMLFormElement>) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const loginEmail = email;
     const loginPassword = password;
+    setIsSubmitting(true);
     try {
       if (isSignUp) {
         //logic to handle sign up
@@ -55,7 +54,7 @@ export function LoginPage() {
           toast.error("Passwords do not match!", { position: "top-center" });
         } else {
           //passwords match, attempt sign up
-          const { isSignUpComplete, nextStep } = await signUp({
+          const { nextStep } = await signUp({
             username: loginEmail,
             password: loginPassword,
           });
@@ -69,7 +68,7 @@ export function LoginPage() {
         }
       } else {
         //logic to handle sign in
-        const { isSignedIn, nextStep } = await signIn({
+        const { nextStep } = await signIn({
           username: loginEmail,
           password: loginPassword,
         });
@@ -91,8 +90,10 @@ export function LoginPage() {
       } else if (err instanceof Error) {
         toast.error(err.message, { position: "top-center" });
       } else {
-        toast.error("Unexpected error occured", { position: "top-center" });
+        toast.error("Unexpected error occurred", { position: "top-center" });
       }
+    } finally {
+      setIsSubmitting(false);
     }
   }
   return (
@@ -113,6 +114,7 @@ export function LoginPage() {
               type="email"
               value={email}
               placeholder="youremail@example.com"
+              autoComplete="email"
               onChange={(e) => setEmail(e.target.value)}
               required
             />
@@ -124,6 +126,7 @@ export function LoginPage() {
               type={showPassword ? "text" : "password"}
               placeholder="••••••••••••"
               value={password}
+              autoComplete={isSignUp ? "new-password" : "current-password"}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
@@ -136,25 +139,26 @@ export function LoginPage() {
           </div>
           {isSignUp && (
             <div className="space-y-2">
-              <Label htmlFor="password">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
-                id="password"
+                id="confirmPassword"
                 type="password"
                 placeholder="••••••••••••"
                 value={confirmPassword}
+                autoComplete="new-password"
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                required
               />
             </div>
           )}
-          {
-            <Button
-              type="submit"
-              className="w-full hover:bg-primary/50"
-              variant="outline"
-            >
-              {isSignUp ? "Sign up" : "Sign in"}
-            </Button>
-          }
+          <Button
+            type="submit"
+            className="w-full hover:bg-primary/50"
+            variant="outline"
+            disabled={isSubmitting}
+          >
+            {isSignUp ? "Sign up" : "Sign in"}
+          </Button>
           {showVerification && (
             <VerificationCode
               confirmationCode={confirmationCode}
@@ -221,29 +225,25 @@ const VerificationCode = ({
   const [showResendCountdown, setShowResendCountdown] = useState(false);
   const [countdownTimer, setCountdownTimer] = useState(0);
   useEffect(() => {
-    let countdown: NodeJS.Timeout | undefined;
-    if (showResendCountdown) {
-      const countdown = setInterval(
-        () =>
-          setCountdownTimer((old) => {
-            if (old < 1) {
-              //When counter hits 0, hide the countdown and stop interval.
-              setShowResendCountdown(false);
-              clearInterval(countdown);
-              return 0;
-            }
-            return old - 1;
-          }),
-        1000,
-      ); //Countdown by 1 each second.
-    }
+    if (!showResendCountdown) return;
+    const countdown = setInterval(
+      () =>
+        setCountdownTimer((old) => {
+          if (old < 1) {
+            //When counter hits 0, hide the countdown and stop interval.
+            setShowResendCountdown(false);
+            clearInterval(countdown);
+            return 0;
+          }
+          return old - 1;
+        }),
+      1000,
+    ); //Countdown by 1 each second.
     return () => clearInterval(countdown);
   }, [showResendCountdown]);
-  useEffect(() => {}, []);
   const VerificationSubmit = async () => {
     try {
-      console.log(verificationEmail, confirmationCode);
-      const { isSignUpComplete, nextStep } = await confirmSignUp({
+      await confirmSignUp({
         username: verificationEmail.current,
         confirmationCode: confirmationCode,
       });
