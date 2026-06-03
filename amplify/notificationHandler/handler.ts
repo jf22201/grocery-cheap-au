@@ -1,14 +1,12 @@
 import { EventBridgeEvent } from "aws-lambda";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { drizzle } from "drizzle-orm/node-postgres";
 import { sql, inArray } from "drizzle-orm";
 import { comparisonGroupsTable } from "amplify/db/schema";
+import { getDb } from "amplify/db";
 import { Logger } from "@aws-lambda-powertools/logger";
 
 const logger = new Logger({ serviceName: "notification-handler" });
 const ses = new SESClient({ region: "ap-southeast-2" });
-const db = drizzle(process.env.DATABASE_URL!);
-const dbSchema = sql.identifier(process.env.DB_SCHEMA || "main");
 const SENDER_EMAIL = process.env.SES_SENDER_EMAIL!;
 
 type AffectedGroupRow = {
@@ -42,6 +40,7 @@ type GroupSummary = {
 export const handler = async (
   event: EventBridgeEvent<"ScrapeComplete", { changedProductIds: number[] }>,
 ) => {
+  const db = await getDb();
   const { changedProductIds } = event.detail;
   logger.info("Notification handler invoked", { changedProductIds });
 
@@ -64,16 +63,16 @@ export const handler = async (
       p.product_name,
       v.vendor_name,
       lp.price
-    FROM ${dbSchema}.comparison_groups cg
-    JOIN ${dbSchema}.users u ON u.id = cg.user_id
-    JOIN ${dbSchema}.comparison_products cp ON cp.group = cg.id
-    JOIN ${dbSchema}.products p ON p.id = cp.product_id
-    JOIN ${dbSchema}.vendors v ON v.id = p.vendor_id
-    JOIN ${dbSchema}.latest_prices lp ON lp.product_id = p.id
+    FROM comparison_groups cg
+    JOIN users u ON u.id = cg.user_id
+    JOIN comparison_products cp ON cp.group = cg.id
+    JOIN products p ON p.id = cp.product_id
+    JOIN vendors v ON v.id = p.vendor_id
+    JOIN latest_prices lp ON lp.product_id = p.id
     WHERE cg.price_alert > 0
       AND cg.id IN (
         SELECT DISTINCT cp2.group
-        FROM ${dbSchema}.comparison_products cp2
+        FROM comparison_products cp2
         WHERE cp2.product_id = ANY(ARRAY[${sql.raw(changedProductIds.join(","))}]::int[])
       )
   `);

@@ -1,5 +1,5 @@
 import { Context } from "hono";
-import { db } from "amplify/db";
+import { getDb } from "amplify/db";
 import { usersTable } from "amplify/db/schema";
 import { eq } from "drizzle-orm";
 /**
@@ -20,6 +20,7 @@ export function getCognitoId(c: Context): string {
  * @returns Database internal users id
  */
 export async function getUserId(c: Context) {
+  const db = await getDb();
   const cognitoId = getCognitoId(c);
   const [user] = await db
     .select()

@@ -1,5 +1,5 @@
 import Scraper from "../scrapers/Scraper";
-import { db } from "../../amplify/db/index"; //NOTE : relative paths used here for docker compatibility.
+import { getDb } from "../../amplify/db/index"; //NOTE : relative paths used here for docker compatibility.
 import {
   pricesTable,
   productsTable,
@@ -20,6 +20,7 @@ import {
   PutEventsCommand,
 } from "@aws-sdk/client-eventbridge";
 async function main() {
+  const db = await getDb();
   const allProducts = await db
     .select()
     .from(productsTable)
