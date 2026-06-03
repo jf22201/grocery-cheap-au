@@ -1,6 +1,7 @@
 import type { PostConfirmationTriggerHandler } from "aws-lambda";
 import { getDb } from "../../db/index";
 import { usersTable } from "../../db/schema";
+import { sql } from "drizzle-orm";
 export const handler: PostConfirmationTriggerHandler = async (event) => {
   const db = await getDb();
   console.log("Running account post confirm handler...");
