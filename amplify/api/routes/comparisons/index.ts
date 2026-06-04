@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import { LambdaEvent } from "hono/aws-lambda";
-// import { db } from "../../../db";
 import { Logger } from "@aws-lambda-powertools/logger";
-import { db, dbSchema } from "amplify/db";
+import { getDb } from "amplify/db";
 import {
   usersTable,
   comparisonGroupsTable,
@@ -83,6 +82,7 @@ const logger = new Logger({ serviceName: "comparisons-api" });
 export const comparisons = new Hono<{ Bindings: Bindings }>();
 
 comparisons.get("/", async (c) => {
+  const db = await getDb();
   const requestContext = getRequestContext(c);
   logger.appendKeys({ requestId: requestContext.requestId });
   logger.info("GET /comparisons started", requestContext);
@@ -91,16 +91,16 @@ comparisons.get("/", async (c) => {
     logger.debug("Resolved user for GET /comparisons", { userId });
     const result = await db.execute(sql`
   SELECT latest.price, products.product_name, products.id AS product_id, comparison_products.group, vendors.vendor_slug, comparison_groups.price_alert, products.url,comparison_groups.name
-  FROM ${dbSchema}.comparison_groups 
-  JOIN ${dbSchema}.comparison_products ON ${dbSchema}.comparison_groups.id = ${dbSchema}.comparison_products.group
-  JOIN ${dbSchema}.products ON ${dbSchema}.comparison_products.product_id = ${dbSchema}.products.id
-  JOIN ${dbSchema}.vendors ON ${dbSchema}.products.vendor_id = ${dbSchema}.vendors.id
+  FROM comparison_groups
+  JOIN comparison_products ON comparison_groups.id = comparison_products.group
+  JOIN products ON comparison_products.product_id = products.id
+  JOIN vendors ON products.vendor_id = vendors.id
   JOIN (
-    SELECT DISTINCT ON (product_id) * 
-    FROM ${dbSchema}.prices 
+    SELECT DISTINCT ON (product_id) *
+    FROM prices
     ORDER BY product_id, date_recorded DESC
-  ) latest ON latest.product_id = ${dbSchema}.products.id
-  WHERE ${dbSchema}.comparison_groups.user_id = ${userId}
+  ) latest ON latest.product_id = products.id
+  WHERE comparison_groups.user_id = ${userId}
 `);
     const comparisonProducts = result.rows as ComparisonProduct[];
     logger.info("Fetched comparison products", {
@@ -122,6 +122,7 @@ comparisons.get("/", async (c) => {
 });
 
 comparisons.post("/", async (c) => {
+  const db = await getDb();
   const requestContext = getRequestContext(c);
   logger.appendKeys({ requestId: requestContext.requestId });
   //function to check if product already exists and input new values if not
@@ -268,16 +269,16 @@ comparisons.post("/", async (c) => {
 
           const existingProductResult = await tx.execute(sql`
             SELECT
-              ${dbSchema}.products.id AS product_id,
-              ${dbSchema}.products.product_name,
-              ${dbSchema}.vendors.vendor_slug,
-              ${dbSchema}.products.url,
-              ${dbSchema}.prices.price
-            FROM ${dbSchema}.products
-            JOIN ${dbSchema}.vendors ON ${dbSchema}.products.vendor_id = ${dbSchema}.vendors.id
-            JOIN ${dbSchema}.prices ON ${dbSchema}.prices.product_id = ${dbSchema}.products.id
-            WHERE ${dbSchema}.products.id = ${productId}
-            ORDER BY ${dbSchema}.prices.date_recorded DESC
+              products.id AS product_id,
+              products.product_name,
+              vendors.vendor_slug,
+              products.url,
+              prices.price
+            FROM products
+            JOIN vendors ON products.vendor_id = vendors.id
+            JOIN prices ON prices.product_id = products.id
+            WHERE products.id = ${productId}
+            ORDER BY prices.date_recorded DESC
             LIMIT 1
           `);
 
@@ -330,6 +331,7 @@ comparisons.post("/", async (c) => {
 });
 
 comparisons.delete("/", async (c) => {
+  const db = await getDb();
   const requestContext = getRequestContext(c);
   logger.appendKeys({ requestId: requestContext.requestId });
   logger.info("DELETE /comparisons started", requestContext);
@@ -372,6 +374,7 @@ comparisons.delete("/", async (c) => {
 //TODO: Add change of products functionality
 //For now this only handles price alert changes and name
 comparisons.put("/", async (c) => {
+  const db = await getDb();
   const cognitoId = getCognitoId(c);
   const reqBody: { group_id: number; price_alert: number; name: string } =
     await c.req.json();

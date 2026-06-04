@@ -1,0 +1,20 @@
+{
+  "name": "grocery-cheap-au-infra",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.200.0",
+    "constructs": "^10.0.0",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "aws-cdk": "^2.200.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/source-map-support": "^0.5.10"
+  }
+}
