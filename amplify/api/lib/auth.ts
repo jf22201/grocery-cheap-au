@@ -1,5 +1,5 @@
 import { Context } from "hono";
-import { db } from "amplify/db";
+import { getDb } from "amplify/db";
 import { usersTable } from "amplify/db/schema";
 import { eq } from "drizzle-orm";
 /**
@@ -20,11 +20,16 @@ export function getCognitoId(c: Context): string {
  * @returns Database internal users id
  */
 export async function getUserId(c: Context) {
+  const db = await getDb();
   const cognitoId = getCognitoId(c);
+  console.log(`getUserId: cognito_user_id=${cognitoId}`);
   const [user] = await db
     .select()
     .from(usersTable)
     .where(eq(usersTable.cognito_user_id, cognitoId));
-  const userId = user.id;
-  return userId;
+  if (!user) {
+    console.error(`getUserId: no DB user for cognito_user_id=${cognitoId}`);
+    throw new Error(`User not found for cognito_user_id: ${cognitoId}`);
+  }
+  return user.id;
 }

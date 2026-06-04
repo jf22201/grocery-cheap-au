@@ -2,7 +2,7 @@
 
 import AddProduct from "@/components/AddProduct";
 import useAuth from "../../hooks/useAuth";
-import { signOut } from "aws-amplify/auth";
+import { signOut } from "@/lib/auth/cognito";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";

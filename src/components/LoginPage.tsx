@@ -16,9 +16,8 @@ import {
   signIn,
   signUp,
   confirmSignUp,
-  resendSignUpCode,
-  AuthError,
-} from "aws-amplify/auth";
+  resendConfirmationCode,
+} from "@/lib/auth/cognito";
 import React, {
   useState,
   useEffect,
@@ -55,11 +54,8 @@ export function LoginPage() {
           toast.error("Passwords do not match!", { position: "top-center" });
         } else {
           //passwords match, attempt sign up
-          const { isSignUpComplete, nextStep } = await signUp({
-            username: loginEmail,
-            password: loginPassword,
-          });
-          if (nextStep.signUpStep == "CONFIRM_SIGN_UP") {
+          const { userConfirmed } = await signUp(loginEmail, loginPassword);
+          if (!userConfirmed) {
             verificationEmail.current = loginEmail;
             toast.info("Verification code sent to email.", {
               position: "top-center",
@@ -69,26 +65,13 @@ export function LoginPage() {
         }
       } else {
         //logic to handle sign in
-        const { isSignedIn, nextStep } = await signIn({
-          username: loginEmail,
-          password: loginPassword,
-        });
-        if (nextStep.signInStep == "DONE") {
-          toast.success("Logged in successfully!", { position: "top-center" });
-          router.push("/");
-        }
-        if (nextStep.signInStep == "CONFIRM_SIGN_UP") {
-          verificationEmail.current = loginEmail;
-          setShowVerification(true);
-        }
+        await signIn(loginEmail, loginPassword);
+        toast.success("Logged in successfully!", { position: "top-center" });
+        router.push("/");
       }
     } catch (err) {
       console.log(err);
-      // show toast error notification to user
-      if (err instanceof AuthError) {
-        //aws-amplify auth error
-        toast.error(err.message, { position: "top-center" });
-      } else if (err instanceof Error) {
+      if (err instanceof Error) {
         toast.error(err.message, { position: "top-center" });
       } else {
         toast.error("Unexpected error occured", { position: "top-center" });
@@ -243,21 +226,14 @@ const VerificationCode = ({
   const VerificationSubmit = async () => {
     try {
       console.log(verificationEmail, confirmationCode);
-      const { isSignUpComplete, nextStep } = await confirmSignUp({
-        username: verificationEmail.current,
-        confirmationCode: confirmationCode,
-      });
-      //If we reach here without error thrown, the account was activated successfully.
+      await confirmSignUp(verificationEmail.current, confirmationCode);
       setShowVerification(false);
       setIsSignUp(false);
       toast.success("Account verified successfully! Please sign in.", {
         position: "top-center",
       });
     } catch (err: unknown) {
-      if (err instanceof AuthError) {
-        //aws-amplify auth error
-        toast.error(err.message, { position: "top-center" });
-      } else if (err instanceof Error) {
+      if (err instanceof Error) {
         toast.error(err.message, { position: "top-center" });
       } else {
         toast.error("Unexpected error occurred", { position: "top-center" });
@@ -270,15 +246,9 @@ const VerificationCode = ({
       setCountdownTimer(60);
       setShowResendCountdown(true);
       try {
-        const output = await resendSignUpCode({
-          username: verificationEmail.current,
-        });
-        console.log(output);
+        await resendConfirmationCode(verificationEmail.current);
       } catch (err: unknown) {
-        if (err instanceof AuthError) {
-          //aws-amplify auth error
-          toast.error(err.message, { position: "top-center" });
-        } else if (err instanceof Error) {
+        if (err instanceof Error) {
           toast.error(err.message, { position: "top-center" });
         } else {
           toast.error("Unexpected error occured", { position: "top-center" });
