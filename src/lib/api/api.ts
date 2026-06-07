@@ -1,3 +1,4 @@
+import axios from "axios";
 import { getAccessToken } from "@/lib/auth/cognito";
 
 type DocumentType =
@@ -8,48 +9,33 @@ type DocumentType =
   | DocumentType[]
   | { [prop: string]: DocumentType };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL!;
+const api = axios.create({ baseURL: process.env.NEXT_PUBLIC_API_URL! });
 
-async function authHeaders(): Promise<Record<string, string>> {
+api.interceptors.request.use(async (config) => {
   const token = await getAccessToken();
-  return token ? { Authorization: token } : {};
-}
+  if (token) config.headers.Authorization = token;
+  return config;
+});
 
 export async function apiGet(
   apiPath: string,
   queryParams?: Record<string, string>,
 ) {
-  const url = new URL(apiPath, API_URL);
-  if (queryParams) {
-    Object.entries(queryParams).forEach(([k, v]) => url.searchParams.set(k, v));
-  }
-  const res = await fetch(url.toString(), { headers: await authHeaders() });
-  return res.json();
+  const res = await api.get(apiPath, { params: queryParams });
+  return res.data;
 }
 
 export async function apiPost(apiPath: string, requestBody: DocumentType) {
-  const res = await fetch(new URL(apiPath, API_URL).toString(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-    body: JSON.stringify(requestBody),
-  });
-  return res.json();
+  const res = await api.post(apiPath, requestBody);
+  return res.data;
 }
 
 export async function apiPut(apiPath: string, requestBody: DocumentType) {
-  const res = await fetch(new URL(apiPath, API_URL).toString(), {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-    body: JSON.stringify(requestBody),
-  });
-  return res.json();
+  const res = await api.put(apiPath, requestBody);
+  return res.data;
 }
 
 export async function apiDelete(apiPath: string, requestBody?: DocumentType) {
-  const res = await fetch(new URL(apiPath, API_URL).toString(), {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-    ...(requestBody ? { body: JSON.stringify(requestBody) } : {}),
-  });
-  return res.json();
+  const res = await api.delete(apiPath, { data: requestBody });
+  return res.data;
 }
