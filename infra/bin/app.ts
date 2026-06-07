@@ -6,20 +6,26 @@ import { ScraperStack } from "../lib/scraper-stack";
 
 const app = new cdk.App();
 
+const environment: string = app.node.tryGetContext("environment") ?? "staging";
+
 const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: "ap-southeast-2",
 };
 
-const notificationStack = new NotificationStack(app, "NotificationStack", {
-  env,
-});
+// prod uses bare stack names to preserve existing deployed stacks
+const stackId = (name: string) =>
+  environment === "prod" ? name : `${environment}-${name}`;
 
-new ApiStack(app, "ApiStack", {
-  env,
-});
+const notificationStack = new NotificationStack(
+  app,
+  stackId("NotificationStack"),
+  { env }
+);
 
-new ScraperStack(app, "ScraperStack", {
+new ApiStack(app, stackId("ApiStack"), { env, environment });
+
+new ScraperStack(app, stackId("ScraperStack"), {
   env,
   scraperBus: notificationStack.scraperBus,
 });

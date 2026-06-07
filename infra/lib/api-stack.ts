@@ -9,11 +9,17 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
 
-type ApiStackProps = cdk.StackProps;
+type ApiStackProps = cdk.StackProps & { environment: string };
 
 export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
+    const { environment } = props;
+    // prod uses bare paths to preserve existing params; other envs are namespaced
+    const ssmPath = (param: string) =>
+      environment === "prod"
+        ? `/grocery-tracker/${param}`
+        : `/grocery-tracker/${environment}/${param}`;
 
     const dbUrl = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
@@ -85,11 +91,11 @@ export class ApiStack extends cdk.Stack {
 
     // Write pool ID and client ID to SSM for frontend config
     new ssm.StringParameter(this, "UserPoolId", {
-      parameterName: "/grocery-tracker/cognito_user_pool_id",
+      parameterName: ssmPath("cognito_user_pool_id"),
       stringValue: userPool.userPoolId,
     });
     new ssm.StringParameter(this, "UserPoolClientId", {
-      parameterName: "/grocery-tracker/cognito_user_pool_client_id",
+      parameterName: ssmPath("cognito_user_pool_client_id"),
       stringValue: userPoolClient.userPoolClientId,
     });
 
@@ -143,7 +149,7 @@ export class ApiStack extends cdk.Stack {
 
     // Write API URL to SSM so CI/CD can sync it to Vercel
     new ssm.StringParameter(this, "ApiUrl", {
-      parameterName: "/grocery-tracker/api_url",
+      parameterName: ssmPath("api_url"),
       stringValue: httpApi.url!,
     });
 
