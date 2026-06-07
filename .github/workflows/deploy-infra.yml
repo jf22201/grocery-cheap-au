@@ -1,18 +1,18 @@
-name: Migrate
+name: Deploy Infra Prod
 
 on:
   push:
     branches: [main]
     paths:
-      - 'drizzle/**'
+      - 'infra/**'
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  migrate:
-    name: Run DB migrations
+  deploy:
+    name: CDK deploy prod
     runs-on: ubuntu-latest
 
     steps:
@@ -25,17 +25,19 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-southeast-2
 
-      - name: Get database URL from SSM
-        run: echo "DATABASE_URL=$(aws ssm get-parameter --name "/grocery-tracker/database_url" --with-decryption --query Parameter.Value --output text)" >> $GITHUB_ENV
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "npm"
 
-      - name: Install dependencies
+      - name: Install root dependencies
         run: npm ci
 
-      - name: Run migrations
-        run: npx drizzle-kit migrate
+      - name: Install infra dependencies
+        run: npm ci
+        working-directory: infra
+n
+      - name: CDK deploy
+        run: npx cdk deploy --all -c environment=prod --require-approval never
+        working-directory: infra
