@@ -7,19 +7,23 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as ssm from "aws-cdk-lib/aws-ssm";
+import { makeSsmPath } from "./utils";
 
 interface ScraperStackProps extends cdk.StackProps {
   scraperBus: events.EventBus;
+  environment: string;
 }
 
 export class ScraperStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ScraperStackProps) {
     super(scope, id, props);
+    // ssmPath("foo") => /grocery-tracker/{env}/foo, or /grocery-tracker/foo in prod
+    const ssmPath = makeSsmPath(props.environment);
 
     const dbUrl = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
       "DbUrl",
-      { parameterName: "/grocery-tracker/database_url" },
+      { parameterName: ssmPath("database_url") },
     );
     const proxyEndpoint = ssm.StringParameter.fromStringParameterAttributes(
       this,
@@ -80,16 +84,19 @@ export class ScraperStack extends cdk.Stack {
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "nightly-scraper" }),
     });
 
-    new events.Rule(this, "ScraperSchedule", {
-      schedule: events.Schedule.cron({ hour: "21", minute: "30" }),
-      targets: [
-        new targets.EcsTask({
-          cluster,
-          taskDefinition: scraperTaskDef,
-          subnetSelection: { subnetType: ec2.SubnetType.PUBLIC },
-          assignPublicIp: true,
-        }),
-      ],
-    });
+    // staging has no scheduler to avoid unnecessary scrape runs; trigger manually via console/CLI if needed
+    if (props.environment === "prod") {
+      new events.Rule(this, "ScraperSchedule", {
+        schedule: events.Schedule.cron({ hour: "21", minute: "30" }),
+        targets: [
+          new targets.EcsTask({
+            cluster,
+            taskDefinition: scraperTaskDef,
+            subnetSelection: { subnetType: ec2.SubnetType.PUBLIC },
+            assignPublicIp: true,
+          }),
+        ],
+      });
+    }
   }
 }

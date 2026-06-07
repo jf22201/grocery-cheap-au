@@ -20,12 +20,13 @@ const stackId = (name: string) =>
 const notificationStack = new NotificationStack(
   app,
   stackId("NotificationStack"),
-  { env }
+  { env, environment }
 );
 
 new ApiStack(app, stackId("ApiStack"), { env, environment });
 
 new ScraperStack(app, stackId("ScraperStack"), {
   env,
+  environment,
   scraperBus: notificationStack.scraperBus,
 });

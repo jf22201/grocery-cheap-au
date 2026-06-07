@@ -8,23 +8,20 @@ import * as authorizers from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
+import { makeSsmPath } from "./utils";
 
 type ApiStackProps = cdk.StackProps & { environment: string };
 
 export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
-    const { environment } = props;
-    // prod uses bare paths to preserve existing params; other envs are namespaced
-    const ssmPath = (param: string) =>
-      environment === "prod"
-        ? `/grocery-tracker/${param}`
-        : `/grocery-tracker/${environment}/${param}`;
+    // ssmPath("foo") => /grocery-tracker/{env}/foo, or /grocery-tracker/foo in prod
+    const ssmPath = makeSsmPath(props.environment);
 
     const dbUrl = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
       "DbUrl",
-      { parameterName: "/grocery-tracker/database_url" },
+      { parameterName: ssmPath("database_url") },
     );
     const zyteApiKey = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,

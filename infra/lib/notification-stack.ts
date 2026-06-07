@@ -7,19 +7,22 @@ import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as path from "path";
+import { makeSsmPath } from "./utils";
 
-type NotificationStackProps = cdk.StackProps;
+type NotificationStackProps = cdk.StackProps & { environment: string };
 
 export class NotificationStack extends cdk.Stack {
   public readonly scraperBus: events.EventBus;
 
   constructor(scope: Construct, id: string, props: NotificationStackProps) {
     super(scope, id, props);
+    // ssmPath("foo") => /grocery-tracker/{env}/foo, or /grocery-tracker/foo in prod
+    const ssmPath = makeSsmPath(props.environment);
 
     const dbUrl = ssm.StringParameter.fromSecureStringParameterAttributes(
       this,
       "DbUrl",
-      { parameterName: "/grocery-tracker/database_url" },
+      { parameterName: ssmPath("database_url") },
     );
     const sesSenderEmail = ssm.StringParameter.fromStringParameterAttributes(
       this,
