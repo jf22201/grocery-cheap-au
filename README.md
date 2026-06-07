@@ -1,3 +1,27 @@
+## System Architecture
+
+### User Request Flow
+
+```mermaid
+flowchart LR
+    User -->|"HTTP request"| APIGW[API Gateway]
+    APIGW -->|"invoke"| Lambda
+    Lambda -->|"write watch / prefs"| Neon[(Neon\nPostgres)]
+```
+
+### Scrape and notify pipeline
+
+```mermaid
+flowchart LR
+    Sched["EventBridge<br>(scheduled rule)"] -->|"trigger"| ECS["ECS Fargate<br>scraper task"]
+    ECS -->|"write today's prices"| Neon[("Neon<br>Postgres")]
+    ECS -->|"emit changed-products event"| Bus["EventBridge<br>(event bus)"]
+    Bus -->|"invoke"| Lambda["Notification<br>Lambda"]
+    Lambda <-->|"read: who watches these?"| Neon
+    Lambda -->|"send alerts"| SES["SES"]
+    SES -->|"email"| Users["Users"]
+```
+
 ## Design Decisions
 
 ### Scraping Strategy
@@ -44,6 +68,7 @@ Grab AWS CLI tools if not installed on your development machine: [AWS CLI](https
 ### Database
 
 This project uses a single RDS PostgreSQL instance with two schemas for environment isolation:
+
 - `dev_josh` (or your own name) — local development
 - `main` — production
 
